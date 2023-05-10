@@ -2,3 +2,5 @@
 *.fastq.gz
 *.log
 .snakemake/
+pipeline/job_logs/
+pipeline/output/
