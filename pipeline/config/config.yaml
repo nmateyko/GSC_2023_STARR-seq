@@ -1,0 +1,7 @@
+cluster-config: "config/cluster.yaml"
+cluster: "qsub -N {cluster.jobname} 
+          -l walltime={resources.walltime},select={cluster.nodes}:ncpus={threads}:mem={resources.mem_mb}mb 
+          -A {cluster.account} -M {cluster.email} -m {cluster.mailon} 
+          -o {cluster.outdir} -e {cluster.errordir} "
+jobs: 100
+default-resources: [walltime="01:00:00", cpus=1, mem_mb=4800]

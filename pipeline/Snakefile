@@ -1,0 +1,87 @@
+configfile: "pipeline_config.yaml"
+
+def get_input_fastqs(wildcards):
+    if wildcards.sample == "test":
+        return ["test/test_r1_2023_05_08_16_41.fastq.gz", "test/test_r2_2023_05_08_16_41.fastq.gz"]
+
+    else:
+        sample_suffix = config["samples"][wildcards.sample]
+        data_dir = "/arc/project/st-cdeboer-1/GSC-seq/2023-05-03_STARR_Seq/IX11516/HG25JDSX5_1"
+        return [f"{data_dir}/HG25JDSX5_1_1_{sample_suffix}", f"{data_dir}/HG25JDSX5_1_2_{sample_suffix}"]
+
+
+rule all:
+    input:
+        expand("output/clustered/{sample}.txt", sample=config["samples"])
+
+
+rule cutadapt_trim_PE:
+    input:
+        get_input_fastqs
+    output: 
+        r1=temp("output/trimmed/{sample}_1.fastq"),
+        r2=temp("output/trimmed/{sample}_2.fastq")
+    log:
+        summary="output/logs/cutadapt/{sample}_cutadapt.log",
+        untrimmed_1="output/logs/cutadapt/{sample}_untrimmed_1.fastq.gz",
+        untrimmed_2="output/logs/cutadapt/{sample}_untrimmed_2.fastq.gz",
+        short_1="output/logs/cutadapt/{sample}_short_1.fastq.gz",
+        short_2="output/logs/cutadapt/{sample}_short_2.fastq.gz",
+        long_1="output/logs/cutadapt/{sample}_long_1.fastq.gz",
+        long_2="output/logs/cutadapt/{sample}_long_2.fastq.gz",
+    conda:
+        "environment.yaml"
+    params:
+        a1="AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC",
+        a2="AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT",
+        min_len=83,
+        max_len=132
+    threads: 2
+    resources:
+        mem_mb=9600,
+        walltime="00:20:00"
+    shell:
+        "cutadapt -j {threads} --untrimmed-o {log.untrimmed_1} --untrimmed-p {log.untrimmed_2} "
+        "-m {params.min_len} --too-short-o {log.short_1} --too-short-p {log.short_2} "
+        "-M {params.max_len} --too-long-o {log.long_1} --too-long-p {log.long_2} "
+        "-a {params.a1} -A {params.a2} -o {output.r1} -p {output.r2} {input} > {log.summary}"
+
+
+rule pair:
+    input:
+        r1="output/trimmed/{sample}_1.fastq",
+        r2="output/trimmed/{sample}_2.fastq"
+    output: 
+        output="output/paired/{sample}.assembled.fastq"
+    conda:
+        "environment.yaml"
+    params:
+        out_prefix="output/paired/{sample}",
+        min_overlap=83,
+        max_overlap=132
+    threads: 4
+    resources:
+        mem_mb=19200,
+        walltime="01:00:00"
+    shell:
+        "pear -f {input.r1} -r {input.r2} -o {params.out_prefix} -v {params.min_overlap} -m {params.max_overlap} "
+        
+
+rule cluster:
+    input:
+        "output/paired/{sample}.assembled.fastq"
+    output:
+        "output/clustered/{sample}.txt"
+    log:
+        "output/logs/starcode/{sample}_starcode.log"
+    conda:
+        "environment.yaml"
+    params:
+        length=50,
+        distance=3
+    threads: 4
+    resources:
+        mem_mb=19200,
+        walltime="01:00:00"
+    shell:
+        "cut -c-{params.length} {input} | starcode -o {output} -t {threads} -d {params.distance} > {log}"
