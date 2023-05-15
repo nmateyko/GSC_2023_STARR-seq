@@ -4,5 +4,5 @@
 .snakemake/
 pipeline/job_logs/
 pipeline/output/
-_pycache_/
+__pycache__/
 .pytest_cache/
