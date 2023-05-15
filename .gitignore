@@ -1,9 +1,6 @@
-*.fastq
-*.fastq.gz
-*.log
 .snakemake/
 pipeline/job_logs/
 pipeline/output/
 __pycache__/
 .pytest_cache/
-!test_files/
+!test_files/*.fastq
