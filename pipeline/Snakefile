@@ -12,7 +12,7 @@ def get_input_fastqs(wildcards):
 
 rule all:
     input:
-        expand("output/clustered/{sample}.txt", sample=config["samples"])
+        expand("output/clustered/{sample}_clustered.txt", sample=config["samples"])
 
 
 rule cutadapt_trim_PE:
@@ -35,7 +35,7 @@ rule cutadapt_trim_PE:
         a1="AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC",
         a2="AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT",
         min_len=83,
-        max_len=132
+        max_len=133
     threads: 2
     resources:
         mem_mb=9600,
@@ -50,28 +50,27 @@ rule cutadapt_trim_PE:
 rule pair:
     input:
         r1="output/trimmed/{sample}_1.fastq",
-        r2="output/trimmed/{sample}_2.fastq"
+        r2="output/trimmed/{sample}_2.fastq",
+        script="scripts/pair_reads.py"
     output: 
-        output="output/paired/{sample}.assembled.fastq"
+        output="output/paired/{sample}_assembled.fastq"
+    log:
+        "output/logs/pair/{sample}_unpaired.log"
     conda:
         "environment.yaml"
-    params:
-        out_prefix="output/paired/{sample}",
-        min_overlap=83,
-        max_overlap=132
-    threads: 4
+    threads: 1
     resources:
-        mem_mb=19200,
+        mem_mb=4800,
         walltime="01:00:00"
     shell:
-        "pear -f {input.r1} -r {input.r2} -o {params.out_prefix} -v {params.min_overlap} -m {params.max_overlap} "
+        "python {input.script} --r1 {input.r1} --r2 {input.r2} --out {output} --log {log}"
         
 
 rule cluster:
     input:
-        "output/paired/{sample}.assembled.fastq"
+        "output/paired/{sample}_assembled.fastq"
     output:
-        "output/clustered/{sample}.txt"
+        "output/clustered/{sample}_clustered.txt"
     log:
         "output/logs/starcode/{sample}_starcode.log"
     conda:

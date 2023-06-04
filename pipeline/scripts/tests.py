@@ -2,7 +2,8 @@ import os
 import pytest
 import random
 import re
-from pair_reads import read_fastq, revcomp, get_alignment_score, get_consensus, pair_reads_and_save
+from utils import read_fastq, revcomp
+from pair_reads import get_alignment_score, get_consensus, pair_reads_and_save
 
 def test_read_fastq():
     with open("test_files/test.fastq", 'r') as f:
@@ -70,9 +71,9 @@ def get_consensus_ValueError():
         get_consensus(r1, r2)
 
 def test_pair_reads_and_save():
-    id = random.randint(0, 100000000)
-    outfile = f"test_files/test_pair_out_{id}.fastq"
-    logfile = f"test_files/test_pair_out_{id}.log"
+    file_id = random.randint(0, 100000000)
+    outfile = f"test_files/test_pair_out_{file_id}.fastq"
+    logfile = f"test_files/test_pair_out_{file_id}.log"
     pair_reads_and_save("test_files/pair_test_r1.fastq", "test_files/pair_test_r2.fastq", outfile, logfile, align_threshold=0.8)
     with open(outfile, 'r') as f:
         pair_reads_output = f.readlines()
@@ -83,9 +84,9 @@ def test_pair_reads_and_save():
     assert pair_reads_output == pair_reads_expected
 
 def test_pair_reads_and_save_log():
-    id = random.randint(0, 100000000)
-    outfile = f"test_files/test_pair_out_{id}.fastq"
-    logfile = f"test_files/test_pair_out_{id}.log"
+    file_id = random.randint(0, 100000000)
+    outfile = f"test_files/test_pair_out_{file_id}.fastq"
+    logfile = f"test_files/test_pair_out_{file_id}.log"
     pair_reads_and_save("test_files/pair_test_r1.fastq", "test_files/pair_test_r2.fastq", outfile, logfile, align_threshold=0.8)
     with open(logfile, 'r') as f:
         pair_reads_log = f.readlines()
@@ -94,3 +95,5 @@ def test_pair_reads_and_save_log():
     os.remove(outfile)
     os.remove(logfile)
     assert pair_reads_log == pair_reads_expected
+
+def test_get_paired_fastq_lengths():

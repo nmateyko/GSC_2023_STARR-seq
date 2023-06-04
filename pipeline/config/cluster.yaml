@@ -1,5 +1,5 @@
 __default__:
-    jobname: "{rule}"
+    jobname: "{rule}_{wildcards.sample}"
     walltime: "01:00:00"
     nodes: "1"
     cpus: "1"
