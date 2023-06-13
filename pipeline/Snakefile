@@ -1,3 +1,7 @@
+import pathlib
+
+pathlib.Path('job_logs/').mkdir(exist_ok=True)
+
 configfile: "pipeline_config.yaml"
 
 def get_input_fastqs(wildcards):
