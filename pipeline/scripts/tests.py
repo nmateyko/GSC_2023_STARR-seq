@@ -5,6 +5,8 @@ import re
 from utils import read_fastq, revcomp
 from pair_reads import get_alignment_score, get_consensus, pair_reads_and_save
 
+############################## Test utils.py ##############################
+
 def test_read_fastq():
     with open("test_files/test.fastq", 'r') as f:
         fastq_reader = read_fastq(f)
@@ -34,8 +36,11 @@ def test_revcomp(test_input, expected):
     assert revcomp(test_input) == expected
 
 def test_revcomp_ValueError():
-    with pytest.raises(ValueError, match=r"Sequence \(ACTGH\) must only contain ACTGN"):
+    with pytest.raises(ValueError, match=re.escape("Sequence (ACTGH) must only contain ACTGN")):
         revcomp("ACTGH")
+
+
+############################## Test pair_reads.py ##############################
 
 @pytest.mark.parametrize("seq1, seq2, expected", [("AAAAA", "AAAAA", 1), ("ACTGACTG", "ACTGACTA", 0.875), ("ANNNN", "ANNNN", 0.2), ("GGGGG", "CCCCC", 0)])
 def test_get_alignment_score(seq1, seq2, expected):
@@ -96,4 +101,5 @@ def test_pair_reads_and_save_log():
     os.remove(logfile)
     assert pair_reads_log == pair_reads_expected
 
-def test_get_paired_fastq_lengths():
+
+############################# Test get_full_length_cluster_centers.py #############################

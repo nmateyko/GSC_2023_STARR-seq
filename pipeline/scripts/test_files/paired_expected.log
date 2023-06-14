@@ -1,6 +1,10 @@
 Skipping @header/@header because they don't align within given parameters
+              FFFFFFFFFFF
 r1:           NACTGACTGN
 r2 (revcomp): NACTGACTGN
+              FFFFFFFFFF
 Skipping @header/@header because they don't align within given parameters
+              FFFFFFFFFF
 r1:           AAAAAAAAAA
 r2 (revcomp): TTTTTTTTTTTTTTTTTTTT
+              FFFFFFFFFFFFFFFFFFFF
