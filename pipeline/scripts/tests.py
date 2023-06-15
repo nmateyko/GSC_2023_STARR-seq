@@ -4,6 +4,8 @@ import random
 import re
 from utils import read_fastq, revcomp
 from pair_reads import get_alignment_score, get_consensus, pair_reads_and_save
+from get_full_length_cluster_centers import most_common
+from get_full_length_cluster_centers import get_consensus as get_consensus_cluster
 
 ############################## Test utils.py ##############################
 
@@ -103,3 +105,22 @@ def test_pair_reads_and_save_log():
 
 
 ############################# Test get_full_length_cluster_centers.py #############################
+
+@pytest.mark.parametrize("l, expected", [
+    ([1], 1),
+    ([1, 2, 2, 3, 4, 5, 6, 6, 6, 8],  6),
+    ([1, 2, 2, 2, 3, 4, 5, 6, 6, 6, 8],  2),
+    (["A", "B", "A", "C"],  "A"),
+])
+def test_most_common(l, expected):
+    assert most_common(l) == expected
+
+@pytest.mark.parametrize("seqs, expected", [
+    (["AAAAAAAA"],  "AAAAAAAA"),
+    (["AAAAAAAA", "AAAAAAAA", "TTTTTTTT"],  "AAAAAAAA"),
+    (["AAAAAAAA", "TAAAAAAT", "TTTTTTTT"],  "TAAAAAAT"),
+    (["AAAAAAAA", "AAAAAAAA", "TTTTTTTTT", "TTTTTTTTT"],  "AAAAAAAA"),
+    (["ACGTACGTACGT", "ACGTACGTACGT", "ACCTACGTACGTAA", "ACGTACTTACGA", "TACGTACGT"],  "ACGTACGTACGT"),
+])
+def test_get_consenus_cluster(seqs, expected):
+    assert get_consensus_cluster(seqs) == expected
