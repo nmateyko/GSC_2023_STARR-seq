@@ -122,5 +122,5 @@ def test_most_common(l, expected):
     (["AAAAAAAA", "AAAAAAAA", "TTTTTTTTT", "TTTTTTTTT"],  "AAAAAAAA"),
     (["ACGTACGTACGT", "ACGTACGTACGT", "ACCTACGTACGTAA", "ACGTACTTACGA", "TACGTACGT"],  "ACGTACGTACGT"),
 ])
-def test_get_consenus_cluster(seqs, expected):
+def test_get_consensus_cluster(seqs, expected):
     assert get_consensus_cluster(seqs) == expected
