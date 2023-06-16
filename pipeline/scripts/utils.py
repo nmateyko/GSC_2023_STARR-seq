@@ -19,10 +19,10 @@ def read_fastq(fastqfile):
         else:
             raise ValueError("Invalid header lines: %s and %s for seq %s" % (header1, header2, seq))
 
+COMP_TABLE = str.maketrans("ACTGN", "TGACN")
 
 def revcomp(seq):
     '''Return the reverse complement of a DNA sequence'''
     if not set(seq).issubset({'A', 'C', 'G', 'T', 'N'}):
         raise ValueError(f"Sequence ({seq}) must only contain ACTGN")
-    comp = {'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A', 'N': 'N'}
-    return "".join([comp[i] for i in seq[::-1]])
+    return seq.translate(COMP_TABLE)[::-1]
