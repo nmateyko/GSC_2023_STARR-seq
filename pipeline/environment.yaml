@@ -4,4 +4,4 @@ channels:
 dependencies:
   - cutadapt=4.1
   - starcode=1.4
-  - pear=0.9.6
+  - levenshtein=0.21.1

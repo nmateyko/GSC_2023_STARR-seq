@@ -2,7 +2,7 @@ import pathlib
 
 pathlib.Path('job_logs/').mkdir(exist_ok=True)
 
-configfile: "test_config.yaml"
+configfile: "pipeline_config.yaml"
 
 def get_input_fastqs(wildcards):
     if wildcards.sample == "test":
@@ -16,7 +16,7 @@ def get_input_fastqs(wildcards):
 
 rule all:
     input:
-        expand("output/clustered/{sample}_clustered.txt", sample=config["samples"])
+        expand("output/final_counts/{sample}_counts.txt", sample=config["samples"])
 
 
 rule cutadapt_trim_PE:
@@ -81,10 +81,30 @@ rule cluster:
         "environment.yaml"
     params:
         length=30,
-        distance=5
-    threads: 1
+        distance=3
+    threads: 4
     resources:
-        mem_mb=4800,
+        mem_mb=19200,
         walltime="01:00:00"
     shell:
         "cut -c-{params.length} {input} | starcode -o {output} -t {threads} -d {params.distance} --seq-id -c 2> {log}"
+
+rule consensus:
+    input:
+        fq="output/paired/{sample}_assembled.fastq",
+        clustered="output/clustered/{sample}_clustered.txt",
+        script="scripts/get_full_length_cluster_centers.py"
+    output:
+        "output/final_counts/{sample}_counts.txt"
+    log:
+        "output/logs/consensus/{sample}.log"
+    conda:
+        "environment.yaml"
+    params:
+        distance=20
+    threads: 2
+    resources:
+        mem_mb=9600,
+        walltime="01:00:00"
+    shell:
+        "python {input.script} -f {input.fq} -c {input.clustered} -o {output} -l {log} -d {params.distance}"
