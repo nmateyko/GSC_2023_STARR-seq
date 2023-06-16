@@ -7,6 +7,7 @@
 # cluster are within some threshold of similarity. It then outputs a list of full-length
 # sequences and their read counts as a tsv.
 
+import argparse
 import csv
 from collections import Counter
 from itertools import zip_longest
@@ -19,9 +20,10 @@ def most_common(l):
     '''
     return Counter(l).most_common(1)[0][0]
 
+
 def get_consensus(seqs):
     '''Get consensus sequence by calculating most common base at each position.
-       In the case of a tie, the base that occured first in the list is chosen.
+       In the case of a tie, the base that occurred first in the list is chosen.
        Sequences of different lengths can be present; the most frequent length is
        used for the final consensus sequence. In the case of a tie, the length of the
        first sequence in the list with one of the most frequent lengths is used.
@@ -30,10 +32,55 @@ def get_consensus(seqs):
     # Find most common sequence length.
     seq_len = most_common([len(seq) for seq in seqs])
 
-    consensus = "".join([most_common(bases) for bases in zip_longest(*seqs, fillvalue ='N')])
-    return consensus[:seq_len]
+    consensus = []
+    for bases in zip_longest(*seqs, fillvalue ='N'):
+        # If all bases are the same, don't try to find the most common base
+        # (assuming most positions have bases that all match, this gives a massive speedup)
+        if len(set(bases)) == 1:
+            consensus.append(bases[0])
+        # If not all bases match, then find the most common base
+        else:
+            consensus.append(most_common(bases))
 
-def get_full_seqs_from_starcode_clusters(input_fastq_fp, clustered_fp, output_fp, log_fp, dist_fun, max_dist):
+    return "".join(consensus)[:seq_len]
+
+
+def get_consensus_and_count(seqs, max_dist):
+    '''Get full length consensus sequence and count from list of sequences.
+       Any sequences further than Levenshtein distance of max_dist from the consensus
+       are not counted and are returned as a list.
+
+       Parameters:
+           seqs (list of str): list of sequences to count
+           max_dist (int): Maximum distance between sequence and the cluster consensus that is allowed;
+                           sequences with larger distances will be discarded.
+
+        Returns:
+            Tuple with 3 elements: the consensus sequence, the count, and a list of sequences that
+            did not match the consensus within the specified max_dist.
+    '''
+    consensus = get_consensus(seqs)
+    not_matching = []
+    count = 0
+    for seq in seqs:
+        if Levenshtein.distance(consensus, seq) > max_dist:
+            not_matching.append(seq)
+        else:
+            count += 1
+    return (consensus, count, not_matching)
+
+
+def full_seq_generator(starcode_reader, input_seqs):
+    '''Generator that takes in a starcode output file reader and list of full length input seqs
+       and returns the full length sequences corresponding to the indexes in the starcode file.
+    '''
+    for row in starcode_reader:
+        seq_indices = [int(i) for i in row[3].split(',')]
+        full_seqs = [input_seqs[i - 1] for i in seq_indices]
+        yield full_seqs
+
+
+def get_full_seqs_from_starcode_clusters(input_fastq_fp, clustered_fp, output_fp, log_fp, max_dist):
     '''Converts the output of starcode (run with --seq-id) run on truncated
        sequences to a tab-separated file of full length cluster centers and counts.
 
@@ -45,7 +92,6 @@ def get_full_seqs_from_starcode_clusters(input_fastq_fp, clustered_fp, output_fp
                                format is <seq>\t<count>\t<seq>\t<index1,index2,...,indexn>\n.
            output_fp (str): Path for output file.
            log_fp (str): Path for log file.
-           dist_fun (returns int): Distance function for comparing similarity of full length sequences.
            max_dist (int): Maximum distance between sequence and the cluster consensus that is allowed;
                            sequences with larger distances will be discarded.   
     '''
@@ -60,26 +106,32 @@ def get_full_seqs_from_starcode_clusters(input_fastq_fp, clustered_fp, output_fp
           open(output_fp, 'w') as output_f,
           open(log_fp, 'w') as log_f):
         
-        csv_reader = csv.reader(f, delimiter='\t')
+        csv_reader = csv.reader(clustered_f, delimiter='\t')
+
         for row in csv_reader:
-            # Get full length sequences of cluster components
             seq_indices = [int(i) for i in row[3].split(',')]
-            full_seqs = [input_seqs[i] for i in seq_indices]
-            # Compare each full sequence to the consensus
-            consensus = get_consensus(full_seqs)
-            not_matching = []
-            count = 0
-            for seq in full_seqs:
-                if dist_fun(consensus, seq) > max_dist:
-                    not_matching.append(seq)
-                else:
-                    count += 1
-            output_f.write(f"{consensus}\t{count}")
+            full_seqs = [input_seqs[i - 1] for i in seq_indices]
+            consensus, count, not_matching = get_consensus_and_count(full_seqs, max_dist=max_dist)
+            output_f.write(f"{consensus}\t{count}\n")
             if len(not_matching):
-                log_f.write(f"Consensus: {consensus}")
+                log_f.write(f"Consensus: {consensus}\n")
                 for seq in not_matching:
-                    log_f.write(f"           {seq}")
-            
+                    log_f.write(f"           {seq}\n")
 
 
-get_full_seqs_from_starcode_clusters("/scratch/st-cdeboer-1/najmeh/GSC_2023_STARR-seq/pipeline/output/paired/Sahu_DNA_rep1_assembled.fastq", "/scratch/st-cdeboer-1/najmeh/GSC_2023_STARR-seq/pipeline/output/clustered/Sahu_DNA_rep1_clustered.txt", "test_out.txt", "test_log.txt", Levenshtein.distance, 10)
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-f', dest='input_fastq_fp', help="Fastq file used as starcode input", required=True)
+    parser.add_argument('-c', dest='clustered_fp', help="Starcode output file (must use --seq-id option with starcode)", required=True)
+    parser.add_argument('-o', dest='output_fp', help="Output file", required=True)
+    parser.add_argument('-l', dest='log_fp', help="Log file", required=True)
+    parser.add_argument('-d', dest='max_dist', type=int, help="Maximum distance between sequence and cluster consensus", required=True)
+    args = parser.parse_args()
+
+    get_full_seqs_from_starcode_clusters(args.input_fastq_fp, args.clustered_fp, args.output_fp, args.log_fp, args.max_dist)
+
+
+if __name__ == "__main__":
+    main()
+
+# get_full_seqs_from_starcode_clusters("test_files/Sahu_DNA_rep1_sample.fastq", "test_files/Sahu_DNA_rep1_sample_clustered.txt", "test_out.txt", "test_log.txt", 20)
