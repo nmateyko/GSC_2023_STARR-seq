@@ -71,18 +71,17 @@ def pair_reads_and_save(r1_fastq_fp, r2_fastq_fp, out_fp, log_fp, align_threshol
                                f"parameters\n              {r1_read[2]}\nr1:           {r1_seq}\nr2 (revcomp): {r2_seq_revcomp}\n              {r2_read[2]}\n")
 
 
-
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--r1', dest='r1_fastq_fp', help="Input fastq read 1 file", required=True)
     parser.add_argument('--r2', dest='r2_fastq_fp', help="Input fastq read 2 file", required=True)
     parser.add_argument('--out', dest='out_fp', help="Output file", required=True)
     parser.add_argument('--log', dest='log_fp', help="Log file", required=True)
+    parser.add_argument('--threshold', type=float, default=0.8, help="Fraction of aligned read1/2 that match must be greater than this value")
     args = parser.parse_args()
 
-    pair_reads_and_save(args.r1_fastq_fp, args.r2_fastq_fp, args.out_fp, args.log_fp, align_threshold=0.8)
+    pair_reads_and_save(args.r1_fastq_fp, args.r2_fastq_fp, args.out_fp, args.log_fp, align_threshold=args.threshold)
 
-    
 
 if __name__ == "__main__":
     main()
