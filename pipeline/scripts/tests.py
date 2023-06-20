@@ -4,8 +4,9 @@ import random
 import re
 from utils import read_fastq, revcomp
 from pair_reads import get_alignment_score, get_consensus, pair_reads_and_save
-from get_full_length_cluster_centers import most_common
-from get_full_length_cluster_centers import get_consensus as get_consensus_cluster
+from prepend_UMI import prepend
+from get_cluster_counts import most_common, get_consensus_and_count
+from get_cluster_counts import get_consensus as get_consensus_cluster
 
 ############################## Test utils.py ##############################
 
@@ -71,7 +72,7 @@ def test_get_consensus_mixed():
     r2 = ("@header", "TAAAA", "FAFF,")
     assert get_consensus(r1, r2) == ("@header", "TTAAG", "FDFFE")
 
-def get_consensus_ValueError():
+def test_get_consensus_ValueError():
     r1 = ("@header", "ATAAGA", ",DFFE")
     r2 = ("@header", "TAAAA", "FAFF,")
     with pytest.raises(ValueError, match=re.escape("Length of sequence does not match length of quality string for read @header or @header")):
@@ -104,7 +105,7 @@ def test_pair_reads_and_save_log():
     assert pair_reads_log == pair_reads_expected
 
 
-############################# Test get_full_length_cluster_centers.py #############################
+############################# Test get_cluster_counts.py #############################
 
 @pytest.mark.parametrize("l, expected", [
     ([1], 1),
@@ -124,3 +125,26 @@ def test_most_common(l, expected):
 ])
 def test_get_consensus_cluster(seqs, expected):
     assert get_consensus_cluster(seqs) == expected
+
+@pytest.mark.parametrize("seqs, max_dist, expected", [
+    (["AAAAAAAA", "AAAAATAA", "AGAAAAAA", "AAAAAAAN", "AAAAAAA"],  3, ("AAAAAAAA", 5, set())),
+    (["AAAAAAAA", "AAAAAAAA", "TTTTTTTT"], 3, ("AAAAAAAA", 2, {2})),
+    (["AAAAAAAA", "TAAAAAAT", "TTTTTTTT"], 2,  ("TAAAAAAT", 2, {2})),
+])
+def test_get_consensus_and_count(seqs, max_dist, expected):
+    assert get_consensus_and_count(seqs, max_dist) == expected
+
+
+############################# Test prepend_UMI.py #############################
+
+# @pytest.mark.parametrize("read, dist, l, expected", [
+#     (("@headerACGTACGT+GGGGGGGG", "AAAA", "FFFF"), 17, 8, "@headerACGTACGT+GGGGGGGG\nACGTACGTAAAA\n+\nFFFFFFFFFFFF\n"),
+#     (("@headerACGTAC+GGGGGG", "AAAA", "FFFF"), 13, 6, "@headerACGTAC+GGGGGG\nACGTACAAAA\n+\nFFFFFFFFFF\n"),
+# ])
+# def test_prepend(read, dist, l, expected):
+#     assert prepend(read, dist, l) == expected
+
+# def test_prepend_ValueError():
+#     read = ("@headerACGTACGT+GGGGGGGG", "AAAA", "FFFF")
+#     with pytest.raises(ValueError, match=re.escape("UMI contains non-ACTGN character: CGTACGT+")):
+#         prepend(read, 16, 8)
