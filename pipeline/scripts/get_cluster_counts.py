@@ -20,8 +20,8 @@ from utils import read_fastq
 import Levenshtein
 
 def most_common(l):
-    '''Returns most common element in a list.
-    In the case of a tie, the element that occurs first in the list is returned.
+    '''Returns most common element in a list. In the case of a tie, returns the
+       most common element that occurs first in the list.
     '''
     return Counter(l).most_common(1)[0][0]
 
@@ -34,7 +34,6 @@ def get_consensus(seqs):
        first sequence in the list with one of the most frequent lengths is used.
     '''
 
-    # Find most common sequence length.
     seq_len = most_common([len(seq) for seq in seqs])
 
     consensus = []
@@ -43,7 +42,6 @@ def get_consensus(seqs):
         # (assuming most positions have bases that all match, this gives a massive speedup)
         if len(set(bases)) == 1:
             consensus.append(bases[0])
-        # If not all bases match, then find the most common base
         else:
             consensus.append(most_common(bases))
 
@@ -73,49 +71,6 @@ def get_consensus_and_count(seqs, max_dist):
         else:
             count += 1
     return (consensus, count, set(not_matching))
-
-
-# def cluster_umis(umis, threshold, starcode_path, clust_algo="cc", ratio=5):
-#     '''Cluster a list of UMIs using starcode.
-
-#     Arguments:
-
-#         umis (list of str): List of umis sequences to be clustered.
-#         threshold (int): Max Levenshtein distance for clustering (starcode -d argument).
-#         clust_algo (str): Clustering algorithm for starcode. Default "cc" (connected components; starcode -c).
-#                           Can also be "s" (spheres) or "mp" (message passing).
-#         ratio (int): Ratio for message passing clustering. Default 5; only required if clust_algo is "mp".
-    
-#     Returns:
-#         A dictionary with, for each cluster, the UMI cluster center as key and a list of UMI indices in the cluster as value.
-#     '''
-
-#     if clust_algo not in {"cc", "s", "mp"}:
-#         raise ValueError(f"clust_algo must be 'cc', 's', or 'mp'. You provided {clust_algo}.")
-    
-#     umis_string = "".join([umi + '\n' for umi in umis])
-    
-#     if clust_algo == "mp":
-#         starcode_args = [starcode_path, '--seq-id', '-d', str(threshold), '-r', str(ratio)]
-#     elif clust_algo == "s":
-#         starcode_args = [starcode_path, '--seq-id', '-d', str(threshold), '-s']
-#     else:
-#         starcode_args = [starcode_path, '--seq-id', '-d', str(threshold), '-c']
-    
-#     # Cluster UMIs with starcode and get starcode output string
-#     p = subprocess.run(starcode_args, input=umis_string, capture_output=True, text=True, check=True)
-#     cluster_string = p.stdout
-    
-#     # Convert starcode output to dict of cluster centers and indexes
-#     cluster_dict = {}
-#     for row in cluster_string.split('\n'):
-#         if not len(row):
-#             continue
-#         row_split = row.split('\t')
-#         umi_indices = [int(i) for i in row_split[3].split(',')]
-#         cluster_dict[row_split[0]] = umi_indices
-
-#     return cluster_dict
 
 
 def cluster_umis(umis, threshold, clust_method="directional"):
@@ -208,7 +163,6 @@ def main():
         os.remove(args.output_fp + "_counts.txt")
     if not args.collapse_umi:
         os.remove(args.output_fp + "_UMI_collapsed_counts.txt")
-
 
 
 if __name__ == "__main__":

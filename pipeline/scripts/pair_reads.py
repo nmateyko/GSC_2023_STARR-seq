@@ -10,9 +10,9 @@ from utils import read_fastq, revcomp
 def get_alignment_score(seq1, seq2):
     '''Calculate an alignment score between two DNA sequences.
     
-    Takes two sequences and calculates an alignment score between 0 and 1,
-    which is the sum of matching positions divided by the total length
-    of sequence compared. Sequences must be the same length.
+       Takes two sequences and calculates an alignment score between 0 and 1,
+       which is the sum of matching positions divided by the total length
+       of sequence compared. Sequences must be the same length.
     '''
     if len(seq1) != len(seq2):
         raise ValueError("seq1 length not equal to seq2 length")
@@ -23,8 +23,8 @@ def get_alignment_score(seq1, seq2):
 
 def get_consensus(read1, read2):
     '''Get consensus sequence from two reads, where reads are a (header, sequence, quality) tuple.
-    Uses quality score to chose which base to keep. Returns a (header, sequence, quality) tuple.
-    Returned header is from read 1, and quality string is the max quality at each position.
+       Uses quality score to chose which base to keep. Returns a (header, sequence, quality) tuple.
+       Returned header is from read 1, and quality string is the max quality at each position.
     '''
     consensus = []
     quality = []
@@ -42,8 +42,8 @@ def get_consensus(read1, read2):
 
 def pair_reads_and_save(r1_fastq_fp, r2_fastq_fp, out_fp, log_fp, align_threshold):
     '''Combine paired end reads from read1 and read2 fastq files and save as a single fastq.
-    Assumes read1 and read2 are the same length and are reverse complements with the potential
-    for some mismatches. Saves read pairs that do not align to a log file'''
+       Assumes read1 and read2 are the same length and are reverse complements with the potential
+       for some mismatches. Saves read pairs that do not align to a log file'''
     with open(r1_fastq_fp, 'rt') as r1, \
          open(r2_fastq_fp, 'rt') as r2, \
          open(out_fp, 'wt') as out_file, \
