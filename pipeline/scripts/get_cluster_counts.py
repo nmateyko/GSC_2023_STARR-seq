@@ -89,7 +89,7 @@ def cluster_umis(umis, threshold, clust_method="directional"):
     '''
 
     if clust_method not in {'directional', 'cluster', 'adjacency'}:
-        raise ValueError(f"clust_algo must be 'directional', 'cluster', or 'adjacency'. You provided {clust_algo}.")
+        raise ValueError(f"clust_algo must be 'directional', 'cluster', or 'adjacency'. You provided {clust_method}.")
     
     umi_counter = dict(Counter([umi.encode() for umi in umis]))
     clusterer = UMIClusterer(cluster_method=clust_method)
