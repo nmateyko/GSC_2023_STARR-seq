@@ -1,12 +1,12 @@
 import os
 import pytest
-import random
+import datetime
 import re
 from utils import read_fastq, revcomp
 from pair_reads import get_alignment_score, get_consensus, pair_reads_and_save
-from prepend_UMI import prepend
-from get_cluster_counts import most_common, get_consensus_and_count
+from get_cluster_counts import most_common, get_consensus_and_count, extract_umi, cluster_umis
 from get_cluster_counts import get_consensus as get_consensus_cluster
+from get_cluster_counts import main as get_cluster_counts_main
 
 ############################## Test utils.py ##############################
 
@@ -79,7 +79,7 @@ def test_get_consensus_ValueError():
         get_consensus(r1, r2)
 
 def test_pair_reads_and_save():
-    file_id = random.randint(0, 100000000)
+    file_id = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")
     outfile = f"test_files/test_pair_out_{file_id}.fastq"
     logfile = f"test_files/test_pair_out_{file_id}.log"
     pair_reads_and_save("test_files/pair_test_r1.fastq", "test_files/pair_test_r2.fastq", outfile, logfile, align_threshold=0.8)
@@ -92,7 +92,7 @@ def test_pair_reads_and_save():
     assert pair_reads_output == pair_reads_expected
 
 def test_pair_reads_and_save_log():
-    file_id = random.randint(0, 100000000)
+    file_id = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")
     outfile = f"test_files/test_pair_out_{file_id}.fastq"
     logfile = f"test_files/test_pair_out_{file_id}.log"
     pair_reads_and_save("test_files/pair_test_r1.fastq", "test_files/pair_test_r2.fastq", outfile, logfile, align_threshold=0.8)
@@ -134,17 +134,95 @@ def test_get_consensus_cluster(seqs, expected):
 def test_get_consensus_and_count(seqs, max_dist, expected):
     assert get_consensus_and_count(seqs, max_dist) == expected
 
+@pytest.mark.parametrize("header, dist, l, expected", [
+    ("@headerACGTACGT+GGGGGGGG", 17, 8, "ACGTACGT"),
+    ("@headerACGTAC+GGGGGG", 13, 6, "ACGTAC")
+])
+def test_extract_umi(header, dist, l, expected):
+    assert extract_umi(header, dist, l) == expected
 
-############################# Test prepend_UMI.py #############################
+def test_extract_umi_ValueError():
+    header = "@headerACGTACGT+GGGGGGGG"
+    with pytest.raises(ValueError, match=re.escape("UMI contains non-ACTGN character: CGTACGT+")):
+        extract_umi(header, 16, 8)
 
-# @pytest.mark.parametrize("read, dist, l, expected", [
-#     (("@headerACGTACGT+GGGGGGGG", "AAAA", "FFFF"), 17, 8, "@headerACGTACGT+GGGGGGGG\nACGTACGTAAAA\n+\nFFFFFFFFFFFF\n"),
-#     (("@headerACGTAC+GGGGGG", "AAAA", "FFFF"), 13, 6, "@headerACGTAC+GGGGGG\nACGTACAAAA\n+\nFFFFFFFFFF\n"),
-# ])
-# def test_prepend(read, dist, l, expected):
-#     assert prepend(read, dist, l) == expected
+@pytest.mark.parametrize("umis, t, expected", [
+    (["AAAAAAAA", "AAAAAAAN", "AAAAAAAA"],  2, [["AAAAAAAA".encode(), "AAAAAAAN".encode()]]),
+    (["AAAAAAAA", "AAAAAAAA", "TAAAAAAA", "AAAAAATT", "TTTTTTTT"], 1, [["AAAAAAAA".encode(), "TAAAAAAA".encode()], ["AAAAAATT".encode()],  ["TTTTTTTT".encode()]])
+])
+def test_cluster_umis(umis, t, expected):
+    assert cluster_umis(umis, t, clust_method="directional") == expected
 
-# def test_prepend_ValueError():
-#     read = ("@headerACGTACGT+GGGGGGGG", "AAAA", "FFFF")
-#     with pytest.raises(ValueError, match=re.escape("UMI contains non-ACTGN character: CGTACGT+")):
-#         prepend(read, 16, 8)
+def test_cluster_umis_ValueError():
+    with pytest.raises(ValueError, match=re.escape("clust_method must be 'directional', 'cluster', or 'adjacency'. You provided test.")):
+        cluster_umis(['AAAAAAAA'], 1, clust_method="test")
+
+def test_get_cluster_counts_main_no_umi():
+    fq = "test_files/get_cluster_counts_test.fastq"
+    clustered = "test_files/get_cluster_counts_test.txt"
+    file_id = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")
+    outfile = f"test_files/test_cluster_out_{file_id}"
+    logfile = f"test_files/test_cluster_{file_id}.log"
+    expected_out_no_umi = f"test_files/test_cluster_expected_out_no_umi.txt"
+    test_args = ['-f', fq, '-c', clustered, '-o', outfile, '-l', logfile, '-d', '3']
+    get_cluster_counts_main(test_args)
+    with open(outfile + "_counts.txt", 'r') as f:
+        output_no_umi = f.readlines()
+    with open(expected_out_no_umi, 'r') as f:
+        output_expected_no_umi = f.readlines()
+    os.remove(outfile + "_counts.txt")
+    os.remove(logfile)
+    assert output_no_umi == output_expected_no_umi
+
+def test_get_cluster_counts_main_umi():
+    fq = "test_files/get_cluster_counts_test.fastq"
+    clustered = "test_files/get_cluster_counts_test.txt"
+    file_id = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")
+    outfile = f"test_files/test_cluster_out_{file_id}"
+    logfile = f"test_files/test_cluster_{file_id}.log"
+    expected_out_umi = f"test_files/test_cluster_expected_out_umi.txt"
+    test_args = ['-f', fq, '-c', clustered, '-o', outfile, '-l', logfile, '-d', '3', '--umi', '--umi-threshold', '1', '--umi-start', '17', '--umi-len', '8']
+    get_cluster_counts_main(test_args)
+    with open(outfile + "_UMI_collapsed_counts.txt", 'r') as f:
+        output_umi = f.readlines()
+    with open(expected_out_umi, 'r') as f:
+        output_expected_umi = f.readlines()
+    os.remove(outfile + "_counts.txt")
+    os.remove(outfile + "_UMI_collapsed_counts.txt")
+    os.remove(logfile)
+    assert output_umi == output_expected_umi
+
+def test_get_cluster_counts_main_umi_uncollapsed():
+    fq = "test_files/get_cluster_counts_test.fastq"
+    clustered = "test_files/get_cluster_counts_test.txt"
+    file_id = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")
+    outfile = f"test_files/test_cluster_out_{file_id}"
+    logfile = f"test_files/test_cluster_{file_id}.log"
+    expected_out_no_umi = f"test_files/test_cluster_expected_out_no_umi.txt"
+    test_args = ['-f', fq, '-c', clustered, '-o', outfile, '-l', logfile, '-d', '3', '--umi', '--umi-threshold', '1', '--umi-start', '17', '--umi-len', '8']
+    get_cluster_counts_main(test_args)
+    with open(outfile + "_counts.txt", 'r') as f:
+        output_no_umi = f.readlines()
+    with open(expected_out_no_umi, 'r') as f:
+        output_expected_no_umi = f.readlines()
+    os.remove(outfile + "_counts.txt")
+    os.remove(outfile + "_UMI_collapsed_counts.txt")
+    os.remove(logfile)
+    assert output_no_umi == output_expected_no_umi
+
+def test_get_cluster_counts_main_umi_no_uncollapsed():
+    fq = "test_files/get_cluster_counts_test.fastq"
+    clustered = "test_files/get_cluster_counts_test.txt"
+    file_id = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")
+    outfile = f"test_files/test_cluster_out_{file_id}"
+    logfile = f"test_files/test_cluster_{file_id}.log"
+    expected_out_umi = f"test_files/test_cluster_expected_out_umi.txt"
+    test_args = ['-f', fq, '-c', clustered, '-o', outfile, '-l', logfile, '-d', '3', '--umi', '--umi-threshold', '1', '--umi-start', '17', '--umi-len', '8', '--no-uncollapsed']
+    get_cluster_counts_main(test_args)
+    with open(outfile + "_UMI_collapsed_counts.txt", 'r') as f:
+        output_umi = f.readlines()
+    with open(expected_out_umi, 'r') as f:
+        output_expected_umi = f.readlines()
+    os.remove(outfile + "_UMI_collapsed_counts.txt")
+    os.remove(logfile)
+    assert output_umi == output_expected_umi

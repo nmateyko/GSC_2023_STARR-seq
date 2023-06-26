@@ -73,23 +73,29 @@ def get_consensus_and_count(seqs, max_dist):
     return (consensus, count, set(not_matching))
 
 
+def extract_umi(header, start_distance, umi_len):
+    umi = header[-start_distance:-start_distance + umi_len]
+    if not set(umi).issubset({'A', 'C', 'G', 'T', 'N'}):
+        raise ValueError(f"UMI contains non-ACTGN character: {umi}")
+    return umi
+
+
 def cluster_umis(umis, threshold, clust_method="directional"):
-    '''Cluster a list of UMIs using starcode.
+    '''Cluster a list of UMIs using UMI-tools.
 
     Arguments:
 
-        umis (list of str): List of umis sequences to be clustered.
-        threshold (int): Max Levenshtein distance for clustering (starcode -d argument).
-        clust_algo (str): Clustering algorithm for starcode. Default "cc" (connected components; starcode -c).
-                          Can also be "s" (spheres) or "mp" (message passing).
-        ratio (int): Ratio for message passing clustering. Default 5; only required if clust_algo is "mp".
+        umis (list of str): List of UMI sequences to be clustered.
+        threshold (int): Max distance for clustering.
+        clust_method (str): Clustering algorithm for UMI-tools. Default "directional".
+                          Can also be "cluster" or "adjacency".
     
     Returns:
-        A dictionary with, for each cluster, the UMI cluster center as key and a list of UMI indices in the cluster as value.
+        A list of lists with each list containing the UMIs in one cluster.
     '''
 
     if clust_method not in {'directional', 'cluster', 'adjacency'}:
-        raise ValueError(f"clust_algo must be 'directional', 'cluster', or 'adjacency'. You provided {clust_method}.")
+        raise ValueError(f"clust_method must be 'directional', 'cluster', or 'adjacency'. You provided {clust_method}.")
     
     umi_counter = dict(Counter([umi.encode() for umi in umis]))
     clusterer = UMIClusterer(cluster_method=clust_method)
@@ -97,13 +103,6 @@ def cluster_umis(umis, threshold, clust_method="directional"):
 
     return clusters
     
-
-def extract_umi(header, start_distance, umi_len):
-    umi = header[-start_distance:-start_distance + umi_len]
-    if not set(umi).issubset({'A', 'C', 'G', 'T', 'N'}):
-        raise ValueError(f"UMI contains non-ACTGN character: {umi}")
-    return umi
-
 
 def parse_args(args):
     parser = argparse.ArgumentParser()
@@ -113,15 +112,15 @@ def parse_args(args):
     parser.add_argument('-l', '--log', dest='log_fp', help="Log file", required=True)
     parser.add_argument('-d', '--max_dist', dest='max_dist', type=int, default=10, help="Maximum distance between sequence and cluster consensus")
     parser.add_argument('--umi', dest='collapse_umi', action='store_true', default=False, help="Collapse sequences using UMIs")
-    parser.add_argument('--umi-threshold', default=2, type=int, help="Max Levenshtein distance for collapsing UMIs")
+    parser.add_argument('--umi-threshold', default=1, type=int, help="Max Levenshtein distance for collapsing UMIs")
     parser.add_argument('--umi-start', type=int, help="Distance of UMI start index from the end of the header line (len(header) - index of UMI start)", required='--umi' in sys.argv)
     parser.add_argument('--umi-len', type=int, help="Length of UMI", required='--umi' in sys.argv)
     parser.add_argument('--no-uncollapsed', default=False, action='store_true', help="Don't save uncollapsed sequence counts in UMI mode")
     return parser.parse_args(args)
 
 
-def main():
-    args = parse_args(sys.argv[1:])
+def main(unparsed_args):
+    args = parse_args(unparsed_args)
 
     with open(args.input_fastq_fp, 'r') as f:
         fq_reader = read_fastq(f)
@@ -166,4 +165,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1:])
