@@ -108,14 +108,13 @@ def parse_args(args):
     parser = argparse.ArgumentParser()
     parser.add_argument('-f', '--fastq', dest='input_fastq_fp', help="Fastq file used as starcode input", required=True)
     parser.add_argument('-c', '--clustered', dest='clustered_fp', help="Starcode output file (must use --seq-id option with starcode)", required=True)
-    parser.add_argument('-o', '--output', dest='output_fp', help="Output file prefix", required=True)
-    parser.add_argument('-l', '--log', dest='log_fp', help="Log file", required=True)
+    parser.add_argument('-o', '--output', dest='output_fp', help="Output file path", required=True)
+    parser.add_argument('-l', '--log', dest='log_fp', help="Log file path", required=True)
     parser.add_argument('-d', '--max_dist', dest='max_dist', type=int, default=10, help="Maximum distance between sequence and cluster consensus")
     parser.add_argument('--umi', dest='collapse_umi', action='store_true', default=False, help="Collapse sequences using UMIs")
     parser.add_argument('--umi-threshold', default=1, type=int, help="Max Levenshtein distance for collapsing UMIs")
     parser.add_argument('--umi-start', type=int, help="Distance of UMI start index from the end of the header line (len(header) - index of UMI start)", required='--umi' in sys.argv)
     parser.add_argument('--umi-len', type=int, help="Length of UMI", required='--umi' in sys.argv)
-    parser.add_argument('--no-uncollapsed', default=False, action='store_true', help="Don't save uncollapsed sequence counts in UMI mode")
     return parser.parse_args(args)
 
 
@@ -134,8 +133,7 @@ def main(unparsed_args):
             input_seqs = [seq for header, seq, qual in fq_reader]
 
     with (open(args.clustered_fp, 'r') as clustered_f,
-          open(args.output_fp + "_counts.txt", 'w') as output_f,
-          open(args.output_fp + "_UMI_collapsed_counts.txt", 'w') as collapsed_output_f,
+          open(args.output_fp, 'w') as output_f,
           open(args.log_fp, 'w') as log_f):
         
         csv_reader = csv.reader(clustered_f, delimiter='\t')
@@ -144,24 +142,21 @@ def main(unparsed_args):
             seq_indices = [int(i) for i in row[3].split(',')]
             full_seqs = [input_seqs[i - 1] for i in seq_indices] # starcode indices are 1-based
             consensus, count, not_matching = get_consensus_and_count(full_seqs, max_dist=args.max_dist)
-            if not args.no_uncollapsed:
-                output_f.write(f"{consensus}\t{count}\n")
-            if len(not_matching) or count == 0:
-                log_f.write(f"Consensus: {consensus}\n")
-                for i in not_matching:
-                    log_f.write(f"           {full_seqs[i]}\n")
-            if args.collapse_umi:
+
+            if not args.collapse_umi:
+                output_f.write(f"{consensus}\t{count}\n")               
+            else:
                 umis = [input_umis[i - 1] for i in seq_indices] # starcode indices are 1-based
                 umis_passed = [umi for i, umi in enumerate(umis) if i not in not_matching]
                 if count > 0:
                     umis_clustered = cluster_umis(umis_passed, args.umi_threshold)
                     umi_count = len(umis_clustered)
-                    collapsed_output_f.write(f"{consensus}\t{umi_count}\n")
-        
-    if args.no_uncollapsed:
-        os.remove(args.output_fp + "_counts.txt")
-    if not args.collapse_umi:
-        os.remove(args.output_fp + "_UMI_collapsed_counts.txt")
+                    output_f.write(f"{consensus}\t{count}\t{umi_count}\n")
+
+            if len(not_matching) or count == 0:
+                log_f.write(f"Consensus: {consensus}\n")
+                for i in not_matching:
+                    log_f.write(f"           {full_seqs[i]}\n")
 
 
 if __name__ == "__main__":

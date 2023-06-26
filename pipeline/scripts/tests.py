@@ -161,16 +161,16 @@ def test_get_cluster_counts_main_no_umi():
     fq = "test_files/get_cluster_counts_test.fastq"
     clustered = "test_files/get_cluster_counts_test.txt"
     file_id = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")
-    outfile = f"test_files/test_cluster_out_{file_id}"
+    outfile = f"test_files/test_cluster_out_{file_id}.txt"
     logfile = f"test_files/test_cluster_{file_id}.log"
     expected_out_no_umi = f"test_files/test_cluster_expected_out_no_umi.txt"
     test_args = ['-f', fq, '-c', clustered, '-o', outfile, '-l', logfile, '-d', '3']
     get_cluster_counts_main(test_args)
-    with open(outfile + "_counts.txt", 'r') as f:
+    with open(outfile, 'r') as f:
         output_no_umi = f.readlines()
     with open(expected_out_no_umi, 'r') as f:
         output_expected_no_umi = f.readlines()
-    os.remove(outfile + "_counts.txt")
+    os.remove(outfile)
     os.remove(logfile)
     assert output_no_umi == output_expected_no_umi
 
@@ -178,51 +178,15 @@ def test_get_cluster_counts_main_umi():
     fq = "test_files/get_cluster_counts_test.fastq"
     clustered = "test_files/get_cluster_counts_test.txt"
     file_id = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")
-    outfile = f"test_files/test_cluster_out_{file_id}"
+    outfile = f"test_files/test_cluster_out_{file_id}.txt"
     logfile = f"test_files/test_cluster_{file_id}.log"
     expected_out_umi = f"test_files/test_cluster_expected_out_umi.txt"
     test_args = ['-f', fq, '-c', clustered, '-o', outfile, '-l', logfile, '-d', '3', '--umi', '--umi-threshold', '1', '--umi-start', '17', '--umi-len', '8']
     get_cluster_counts_main(test_args)
-    with open(outfile + "_UMI_collapsed_counts.txt", 'r') as f:
+    with open(outfile, 'r') as f:
         output_umi = f.readlines()
     with open(expected_out_umi, 'r') as f:
         output_expected_umi = f.readlines()
-    os.remove(outfile + "_counts.txt")
-    os.remove(outfile + "_UMI_collapsed_counts.txt")
-    os.remove(logfile)
-    assert output_umi == output_expected_umi
-
-def test_get_cluster_counts_main_umi_uncollapsed():
-    fq = "test_files/get_cluster_counts_test.fastq"
-    clustered = "test_files/get_cluster_counts_test.txt"
-    file_id = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")
-    outfile = f"test_files/test_cluster_out_{file_id}"
-    logfile = f"test_files/test_cluster_{file_id}.log"
-    expected_out_no_umi = f"test_files/test_cluster_expected_out_no_umi.txt"
-    test_args = ['-f', fq, '-c', clustered, '-o', outfile, '-l', logfile, '-d', '3', '--umi', '--umi-threshold', '1', '--umi-start', '17', '--umi-len', '8']
-    get_cluster_counts_main(test_args)
-    with open(outfile + "_counts.txt", 'r') as f:
-        output_no_umi = f.readlines()
-    with open(expected_out_no_umi, 'r') as f:
-        output_expected_no_umi = f.readlines()
-    os.remove(outfile + "_counts.txt")
-    os.remove(outfile + "_UMI_collapsed_counts.txt")
-    os.remove(logfile)
-    assert output_no_umi == output_expected_no_umi
-
-def test_get_cluster_counts_main_umi_no_uncollapsed():
-    fq = "test_files/get_cluster_counts_test.fastq"
-    clustered = "test_files/get_cluster_counts_test.txt"
-    file_id = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")
-    outfile = f"test_files/test_cluster_out_{file_id}"
-    logfile = f"test_files/test_cluster_{file_id}.log"
-    expected_out_umi = f"test_files/test_cluster_expected_out_umi.txt"
-    test_args = ['-f', fq, '-c', clustered, '-o', outfile, '-l', logfile, '-d', '3', '--umi', '--umi-threshold', '1', '--umi-start', '17', '--umi-len', '8', '--no-uncollapsed']
-    get_cluster_counts_main(test_args)
-    with open(outfile + "_UMI_collapsed_counts.txt", 'r') as f:
-        output_umi = f.readlines()
-    with open(expected_out_umi, 'r') as f:
-        output_expected_umi = f.readlines()
-    os.remove(outfile + "_UMI_collapsed_counts.txt")
+    os.remove(outfile)
     os.remove(logfile)
     assert output_umi == output_expected_umi
