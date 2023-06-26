@@ -31,7 +31,7 @@ def get_consensus(read1, read2):
     if len(read1[1]) != len(read1[2]) or len(read2[1]) != len(read2[2]):
         raise ValueError(f"Length of sequence does not match length of quality string for read {read1[0]} or {read2[0]}")
     for base1, qual1, base2, qual2 in zip(read1[1], read1[2], read2[1], read2[2]):
-        if qual1 > qual2: #converts to ASCII, corresponds to quality; if equal, doesn't matter which is better since base is the same
+        if qual1 >= qual2: #converts to ASCII, corresponds to quality
             consensus.append(base1)
             quality.append(qual1)
         else:
