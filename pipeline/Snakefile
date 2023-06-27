@@ -16,15 +16,33 @@ def get_input_fastqs(wildcards):
 
 rule all:
     input:
-        expand("output/final_counts/{sample}_counts.txt", sample=config["samples"])
+        expand("output/counts/{sample}_counts.txt", sample=config["samples"]),
+        expand("output/qc/{sample}", sample=config["samples"])
+
+
+rule fastqc:
+    input:
+        get_input_fastqs
+    output:
+        directory("output/qc/{sample}")
+    log:
+        "output/logs/fastqc/{sample}.log",
+    conda:
+        "environment.yaml"
+    threads: 1
+    resources:
+        mem_mb=4800,
+        walltime="00:20:00"
+    shell:
+        "mkdir {output} ; fastqc {input} -t {threads} -o {output} --noextract 2> {log}"
 
 
 rule cutadapt_trim_PE:
     input:
         get_input_fastqs
     output: 
-        r1=temp("output/trimmed/{sample}_1.fastq"),
-        r2=temp("output/trimmed/{sample}_2.fastq")
+        r1="output/trimmed/{sample}_1.fastq",
+        r2="output/trimmed/{sample}_2.fastq"
     log:
         summary="output/logs/cutadapt/{sample}_cutadapt.log",
         untrimmed_1="output/logs/cutadapt/{sample}_untrimmed_1.fastq.gz",
@@ -39,13 +57,14 @@ rule cutadapt_trim_PE:
         a1="AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC",
         a2="AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT",
         min_len=83,
-        max_len=133
+        max_len=133,
+        overlap=10
     threads: 2
     resources:
         mem_mb=9600,
         walltime="00:20:00"
     shell:
-        "cutadapt -j {threads} --untrimmed-o {log.untrimmed_1} --untrimmed-p {log.untrimmed_2} "
+        "cutadapt -j {threads} --overlap {params.overlap} --untrimmed-o {log.untrimmed_1} --untrimmed-p {log.untrimmed_2} "
         "-m {params.min_len} --too-short-o {log.short_1} --too-short-p {log.short_2} "
         "-M {params.max_len} --too-long-o {log.long_1} --too-long-p {log.long_2} "
         "-a {params.a1} -A {params.a2} -o {output.r1} -p {output.r2} {input} > {log.summary}"
@@ -89,13 +108,13 @@ rule cluster:
     shell:
         "cut -c-{params.length} {input} | starcode -o {output} -t {threads} -d {params.distance} --seq-id -c 2> {log}"
 
-rule consensus:
+rule count:
     input:
         fq="output/paired/{sample}_assembled.fastq",
         clustered="output/clustered/{sample}_clustered.txt",
-        script="scripts/get_full_length_cluster_centers.py"
+        script="scripts/get_cluster_counts.py"
     output:
-        "output/final_counts/{sample}_counts.txt"
+        "output/counts/{sample}_counts.txt"
     log:
         "output/logs/consensus/{sample}.log"
     conda:

@@ -2,6 +2,8 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
+  - fastqc=0.12.1
   - cutadapt=4.1
   - starcode=1.4
+  - umi_tools=1.1.4
   - levenshtein=0.21.1

@@ -10,9 +10,7 @@
 
 import argparse
 import csv
-import os
 import sys
-from tqdm import tqdm
 from collections import Counter
 from itertools import zip_longest
 from umi_tools import UMIClusterer
@@ -138,7 +136,7 @@ def main(unparsed_args):
         
         csv_reader = csv.reader(clustered_f, delimiter='\t')
 
-        for row in tqdm(csv_reader):
+        for row in csv_reader:
             seq_indices = [int(i) for i in row[3].split(',')]
             full_seqs = [input_seqs[i - 1] for i in seq_indices] # starcode indices are 1-based
             consensus, count, not_matching = get_consensus_and_count(full_seqs, max_dist=args.max_dist)
