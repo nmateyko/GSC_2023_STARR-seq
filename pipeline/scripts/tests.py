@@ -82,10 +82,23 @@ def test_pair_reads_and_save():
     file_id = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")
     outfile = f"test_files/test_pair_out_{file_id}.fastq"
     logfile = f"test_files/test_pair_out_{file_id}.log"
-    pair_reads_and_save("test_files/pair_test_r1.fastq", "test_files/pair_test_r2.fastq", outfile, logfile, align_threshold=0.8)
+    pair_reads_and_save("test_files/pair_test_r1.fastq", "test_files/pair_test_r2.fastq", outfile, logfile, align_threshold=0.8, seq_only=False)
     with open(outfile, 'r') as f:
         pair_reads_output = f.readlines()
     with open("test_files/paired_expected.fastq", 'r') as f:
+        pair_reads_expected = f.readlines()
+    os.remove(outfile)
+    os.remove(logfile)
+    assert pair_reads_output == pair_reads_expected
+
+def test_pair_reads_and_save_seq_only():
+    file_id = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")
+    outfile = f"test_files/test_pair_out_{file_id}.fastq"
+    logfile = f"test_files/test_pair_out_{file_id}.log"
+    pair_reads_and_save("test_files/pair_test_r1.fastq", "test_files/pair_test_r2.fastq", outfile, logfile, align_threshold=0.8, seq_only=True)
+    with open(outfile, 'r') as f:
+        pair_reads_output = f.readlines()
+    with open("test_files/paired_expected_seq_only.fastq", 'r') as f:
         pair_reads_expected = f.readlines()
     os.remove(outfile)
     os.remove(logfile)
@@ -95,7 +108,7 @@ def test_pair_reads_and_save_log():
     file_id = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")
     outfile = f"test_files/test_pair_out_{file_id}.fastq"
     logfile = f"test_files/test_pair_out_{file_id}.log"
-    pair_reads_and_save("test_files/pair_test_r1.fastq", "test_files/pair_test_r2.fastq", outfile, logfile, align_threshold=0.8)
+    pair_reads_and_save("test_files/pair_test_r1.fastq", "test_files/pair_test_r2.fastq", outfile, logfile, align_threshold=0.8, seq_only=False)
     with open(logfile, 'r') as f:
         pair_reads_log = f.readlines()
     with open("test_files/paired_expected.log", 'r') as f:
