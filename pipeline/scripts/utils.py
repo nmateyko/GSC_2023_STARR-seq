@@ -1,10 +1,11 @@
 from itertools import islice
 
 # stolen from https://gist.github.com/jakebiesinger/759018/1b7d6bd6967780a8bbae743760c37885bdf86467
-def read_fastq(fastqfile):
+def read_fastq(fastqfile, skip_blank=True):
     '''Parse a fastq-formatted file, yielding a (header, sequence, quality) tuple'''
-    fastqiter = (l.strip('\n') for l in fastqfile)  # strip trailing newlines 
-    fastqiter = filter(lambda l: l, fastqiter)  # skip blank lines
+    fastqiter = (l.strip('\n') for l in fastqfile)  # strip trailing newlines
+    if skip_blank:
+        fastqiter = filter(lambda l: l, fastqiter)  # skip blank lines
     while True:
         fqlines = list(islice(fastqiter, 4))
         if len(fqlines) == 4:
