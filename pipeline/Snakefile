@@ -13,6 +13,12 @@ def get_input_fastqs(wildcards):
         data_dir = "/arc/project/st-cdeboer-1/GSC-seq/2023-05-03_STARR_Seq/IX11516/HG25JDSX5_1"
         return [f"{data_dir}/HG25JDSX5_1_1_{sample_suffix}", f"{data_dir}/HG25JDSX5_1_2_{sample_suffix}"]
 
+def get_umi_params(wildcards):
+    if "Sahu_RNA" in wildcards.sample:
+        return "--umi --umi-threshold 1 --umi-start 17 --umi-len 8"
+    else:
+        return ""
+
 
 rule all:
     input:
@@ -59,10 +65,10 @@ rule cutadapt_trim_PE:
         min_len=83,
         max_len=133,
         overlap=10
-    threads: 2
+    threads: 4
     resources:
-        mem_mb=9600,
-        walltime="00:20:00"
+        mem_mb=19200,
+        walltime="01:00:00"
     shell:
         "cutadapt -j {threads} --overlap {params.overlap} --untrimmed-o {log.untrimmed_1} --untrimmed-p {log.untrimmed_2} "
         "-m {params.min_len} --too-short-o {log.short_1} --too-short-p {log.short_2} "
@@ -108,6 +114,7 @@ rule cluster:
     shell:
         "cut -c-{params.length} {input} | starcode -o {output} -t {threads} -d {params.distance} --seq-id -c 2> {log}"
 
+
 rule count:
     input:
         fq="output/paired/{sample}_assembled.fastq",
@@ -116,14 +123,15 @@ rule count:
     output:
         "output/counts/{sample}_counts.txt"
     log:
-        "output/logs/consensus/{sample}.log"
+        "output/logs/count/{sample}.log"
     conda:
         "environment.yaml"
     params:
-        distance=20
-    threads: 2
+        distance=20,
+        umi_params=get_umi_params
+    threads: 4
     resources:
-        mem_mb=9600,
+        mem_mb=19200,
         walltime="01:00:00"
     shell:
-        "python {input.script} -f {input.fq} -c {input.clustered} -o {output} -l {log} -d {params.distance}"
+        "python {input.script} -f {input.fq} -c {input.clustered} -o {output} -l {log} -d {params.distance} {params.umi_params}"

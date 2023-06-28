@@ -1,3 +1,4 @@
 samples:
     test: test
     Sahu_DNA_rep1: ACTATTGC-TCCGCCTA_150bp.concat_chastity_passed.fastq.gz
+    Sahu_RNA_rep2: -CGTGGAGT_150bp.concat_chastity_passed.fastq.gz
