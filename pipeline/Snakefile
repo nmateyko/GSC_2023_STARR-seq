@@ -92,7 +92,7 @@ rule pair:
         mem_mb=4800,
         walltime="01:00:00"
     shell:
-        "python {input.script} --r1 {input.r1} --r2 {input.r2} --out {output} --log {log}"
+        "python {input.script} --r1 {input.r1} --r2 {input.r2} --out {output} --log {log} --output-fastq"
         
 
 rule cluster:
@@ -129,9 +129,9 @@ rule count:
     params:
         distance=20,
         umi_params=get_umi_params
-    threads: 4
+    threads: 2
     resources:
-        mem_mb=19200,
+        mem_mb=9600,
         walltime="01:00:00"
     shell:
         "python {input.script} -f {input.fq} -c {input.clustered} -o {output} -l {log} -d {params.distance} {params.umi_params}"
