@@ -3,7 +3,7 @@ import pytest
 import datetime
 import re
 from utils import read_fastq, revcomp
-from pair_reads import get_alignment_score, get_consensus, pair_reads_and_save
+from pair_reads import get_alignment_score, get_consensus, pair_reads_and_save, pair_reads_and_save_mp
 from get_cluster_counts import most_common, get_consensus_and_count, extract_umi, cluster_umis
 from get_cluster_counts import get_consensus as get_consensus_cluster
 from get_cluster_counts import main as get_cluster_counts_main
@@ -79,43 +79,67 @@ def test_get_consensus_ValueError():
         get_consensus(r1, r2)
 
 def test_pair_reads_and_save():
-    file_id = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")
-    outfile = f"test_files/test_pair_out_{file_id}.fastq"
-    logfile = f"test_files/test_pair_out_{file_id}.log"
-    pair_reads_and_save("test_files/pair_test_r1.fastq", "test_files/pair_test_r2.fastq", outfile, logfile, align_threshold=0.8, seq_only=False)
-    with open(outfile, 'r') as f:
-        pair_reads_output = f.readlines()
-    with open("test_files/paired_expected.fastq", 'r') as f:
-        pair_reads_expected = f.readlines()
-    os.remove(outfile)
-    os.remove(logfile)
-    assert pair_reads_output == pair_reads_expected
+    try:
+        file_id = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")
+        outfile = f"test_files/test_pair_out_{file_id}.fastq"
+        logfile = f"test_files/test_pair_out_{file_id}.log"
+        pair_reads_and_save("test_files/pair_test_r1.fastq", "test_files/pair_test_r2.fastq", outfile, logfile, align_threshold=0.8, seq_only=False)
+        with open(outfile, 'r') as f:
+            pair_reads_output = f.readlines()
+        with open("test_files/paired_expected.fastq", 'r') as f:
+            pair_reads_expected = f.readlines()
+        assert pair_reads_output == pair_reads_expected
+    finally:
+        os.remove(outfile)
+        os.remove(logfile)
+
+def test_pair_reads_and_save_mp():
+    try:
+        file_id = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")
+        outfile = f"test_files/test_pair_out_{file_id}.fastq"
+        logfile = f"test_files/test_pair_out_{file_id}.log"
+        pair_reads_and_save_mp("test_files/pair_test_r1.fastq", "test_files/pair_test_r2.fastq", outfile, logfile, align_threshold=0.8, cpus=8, seq_only=False)
+        with open(outfile, 'r') as f:
+            pair_reads_output = f.readlines()
+        with open("test_files/paired_expected.fastq", 'r') as f:
+            pair_reads_expected = f.readlines()
+        assert pair_reads_output == pair_reads_expected
+    finally:
+        os.remove(outfile)
+        os.remove(logfile)
+        
 
 def test_pair_reads_and_save_seq_only():
-    file_id = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")
-    outfile = f"test_files/test_pair_out_{file_id}.fastq"
-    logfile = f"test_files/test_pair_out_{file_id}.log"
-    pair_reads_and_save("test_files/pair_test_r1.fastq", "test_files/pair_test_r2.fastq", outfile, logfile, align_threshold=0.8, seq_only=True)
-    with open(outfile, 'r') as f:
-        pair_reads_output = f.readlines()
-    with open("test_files/paired_expected_seq_only.fastq", 'r') as f:
-        pair_reads_expected = f.readlines()
-    os.remove(outfile)
-    os.remove(logfile)
-    assert pair_reads_output == pair_reads_expected
+    try:
+        file_id = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")
+        outfile = f"test_files/test_pair_out_{file_id}.fastq"
+        logfile = f"test_files/test_pair_out_{file_id}.log"
+        pair_reads_and_save("test_files/pair_test_r1.fastq", "test_files/pair_test_r2.fastq", outfile, logfile, align_threshold=0.8, seq_only=True)
+        with open(outfile, 'r') as f:
+            pair_reads_output = f.readlines()
+        with open("test_files/paired_expected_seq_only.fastq", 'r') as f:
+            pair_reads_expected = f.readlines()
+        assert pair_reads_output == pair_reads_expected
+    finally:
+        os.remove(outfile)
+        os.remove(logfile)
+
 
 def test_pair_reads_and_save_log():
-    file_id = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")
-    outfile = f"test_files/test_pair_out_{file_id}.fastq"
-    logfile = f"test_files/test_pair_out_{file_id}.log"
-    pair_reads_and_save("test_files/pair_test_r1.fastq", "test_files/pair_test_r2.fastq", outfile, logfile, align_threshold=0.8, seq_only=False)
-    with open(logfile, 'r') as f:
-        pair_reads_log = f.readlines()
-    with open("test_files/paired_expected.log", 'r') as f:
-        pair_reads_expected = f.readlines()
-    os.remove(outfile)
-    os.remove(logfile)
-    assert pair_reads_log == pair_reads_expected
+    try:
+        file_id = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")
+        outfile = f"test_files/test_pair_out_{file_id}.fastq"
+        logfile = f"test_files/test_pair_out_{file_id}.log"
+        pair_reads_and_save("test_files/pair_test_r1.fastq", "test_files/pair_test_r2.fastq", outfile, logfile, align_threshold=0.8, seq_only=False)
+        with open(logfile, 'r') as f:
+            pair_reads_log = f.readlines()
+        with open("test_files/paired_expected.log", 'r') as f:
+            pair_reads_expected = f.readlines()
+        assert pair_reads_log == pair_reads_expected
+    finally:
+        os.remove(outfile)
+        os.remove(logfile)
+
 
 
 ############################# Test get_cluster_counts.py #############################
@@ -171,69 +195,80 @@ def test_cluster_umis_ValueError():
         cluster_umis(['AAAAAAAA'], 1, clust_method="test")
 
 def test_get_cluster_counts_main_no_umi():
-    fq = "test_files/get_cluster_counts_test.fastq"
-    clustered = "test_files/get_cluster_counts_test.txt"
-    file_id = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")
-    outfile = f"test_files/test_cluster_out_{file_id}.txt"
-    logfile = f"test_files/test_cluster_{file_id}.log"
-    expected_out_no_umi = f"test_files/test_cluster_expected_out_no_umi.txt"
-    test_args = ['-f', fq, '-c', clustered, '-o', outfile, '-l', logfile, '-d', '3']
-    get_cluster_counts_main(test_args)
-    with open(outfile, 'r') as f:
-        output_no_umi = f.readlines()
-    with open(expected_out_no_umi, 'r') as f:
-        output_expected_no_umi = f.readlines()
-    os.remove(outfile)
-    os.remove(logfile)
-    assert output_no_umi == output_expected_no_umi
+    try:
+        fq = "test_files/get_cluster_counts_test.fastq"
+        clustered = "test_files/get_cluster_counts_test.txt"
+        file_id = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")
+        outfile = f"test_files/test_cluster_out_{file_id}.txt"
+        logfile = f"test_files/test_cluster_{file_id}.log"
+        expected_out_no_umi = f"test_files/test_cluster_expected_out_no_umi.txt"
+        test_args = ['-f', fq, '-c', clustered, '-o', outfile, '-l', logfile, '-d', '3']
+        get_cluster_counts_main(test_args)
+        with open(outfile, 'r') as f:
+            output_no_umi = f.readlines()
+        with open(expected_out_no_umi, 'r') as f:
+            output_expected_no_umi = f.readlines()
+        assert output_no_umi == output_expected_no_umi
+    finally:
+        os.remove(outfile)
+        os.remove(logfile)
+
 
 def test_get_cluster_counts_main_umi():
-    fq = "test_files/get_cluster_counts_test.fastq"
-    clustered = "test_files/get_cluster_counts_test.txt"
-    file_id = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")
-    outfile = f"test_files/test_cluster_out_{file_id}.txt"
-    logfile = f"test_files/test_cluster_{file_id}.log"
-    expected_out_umi = f"test_files/test_cluster_expected_out_umi.txt"
-    test_args = ['-f', fq, '-c', clustered, '-o', outfile, '-l', logfile, '-d', '3', '--umi', '--umi-threshold', '1', '--umi-start', '17', '--umi-len', '8']
-    get_cluster_counts_main(test_args)
-    with open(outfile, 'r') as f:
-        output_umi = f.readlines()
-    with open(expected_out_umi, 'r') as f:
-        output_expected_umi = f.readlines()
-    os.remove(outfile)
-    os.remove(logfile)
-    assert output_umi == output_expected_umi
+    try:
+        fq = "test_files/get_cluster_counts_test.fastq"
+        clustered = "test_files/get_cluster_counts_test.txt"
+        file_id = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")
+        outfile = f"test_files/test_cluster_out_{file_id}.txt"
+        logfile = f"test_files/test_cluster_{file_id}.log"
+        expected_out_umi = f"test_files/test_cluster_expected_out_umi.txt"
+        test_args = ['-f', fq, '-c', clustered, '-o', outfile, '-l', logfile, '-d', '3', '--umi', '--umi-threshold', '1', '--umi-start', '17', '--umi-len', '8']
+        get_cluster_counts_main(test_args)
+        with open(outfile, 'r') as f:
+            output_umi = f.readlines()
+        with open(expected_out_umi, 'r') as f:
+            output_expected_umi = f.readlines()
+        assert output_umi == output_expected_umi
+    finally:
+        os.remove(outfile)
+        os.remove(logfile)
+
 
 def test_get_cluster_counts_main_no_umi_in_memory():
-    fq = "test_files/get_cluster_counts_test.fastq"
-    clustered = "test_files/get_cluster_counts_test.txt"
-    file_id = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")
-    outfile = f"test_files/test_cluster_out_{file_id}.txt"
-    logfile = f"test_files/test_cluster_{file_id}.log"
-    expected_out_no_umi = f"test_files/test_cluster_expected_out_no_umi.txt"
-    test_args = ['-f', fq, '-c', clustered, '-o', outfile, '-l', logfile, '-d', '3', '--in-memory']
-    get_cluster_counts_main(test_args)
-    with open(outfile, 'r') as f:
-        output_no_umi = f.readlines()
-    with open(expected_out_no_umi, 'r') as f:
-        output_expected_no_umi = f.readlines()
-    os.remove(outfile)
-    os.remove(logfile)
-    assert output_no_umi == output_expected_no_umi
+    try:
+        fq = "test_files/get_cluster_counts_test.fastq"
+        clustered = "test_files/get_cluster_counts_test.txt"
+        file_id = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")
+        outfile = f"test_files/test_cluster_out_{file_id}.txt"
+        logfile = f"test_files/test_cluster_{file_id}.log"
+        expected_out_no_umi = f"test_files/test_cluster_expected_out_no_umi.txt"
+        test_args = ['-f', fq, '-c', clustered, '-o', outfile, '-l', logfile, '-d', '3', '--in-memory']
+        get_cluster_counts_main(test_args)
+        with open(outfile, 'r') as f:
+            output_no_umi = f.readlines()
+        with open(expected_out_no_umi, 'r') as f:
+            output_expected_no_umi = f.readlines()
+        assert output_no_umi == output_expected_no_umi
+    finally:
+        os.remove(outfile)
+        os.remove(logfile)
+
 
 def test_get_cluster_counts_main_umi_in_memory():
-    fq = "test_files/get_cluster_counts_test.fastq"
-    clustered = "test_files/get_cluster_counts_test.txt"
-    file_id = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")
-    outfile = f"test_files/test_cluster_out_{file_id}.txt"
-    logfile = f"test_files/test_cluster_{file_id}.log"
-    expected_out_umi = f"test_files/test_cluster_expected_out_umi.txt"
-    test_args = ['-f', fq, '-c', clustered, '-o', outfile, '-l', logfile, '-d', '3', '--umi', '--umi-threshold', '1', '--umi-start', '17', '--umi-len', '8', '--in-memory']
-    get_cluster_counts_main(test_args)
-    with open(outfile, 'r') as f:
-        output_umi = f.readlines()
-    with open(expected_out_umi, 'r') as f:
-        output_expected_umi = f.readlines()
-    os.remove(outfile)
-    os.remove(logfile)
-    assert output_umi == output_expected_umi
+    try:
+        fq = "test_files/get_cluster_counts_test.fastq"
+        clustered = "test_files/get_cluster_counts_test.txt"
+        file_id = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")
+        outfile = f"test_files/test_cluster_out_{file_id}.txt"
+        logfile = f"test_files/test_cluster_{file_id}.log"
+        expected_out_umi = f"test_files/test_cluster_expected_out_umi.txt"
+        test_args = ['-f', fq, '-c', clustered, '-o', outfile, '-l', logfile, '-d', '3', '--umi', '--umi-threshold', '1', '--umi-start', '17', '--umi-len', '8', '--in-memory']
+        get_cluster_counts_main(test_args)
+        with open(outfile, 'r') as f:
+            output_umi = f.readlines()
+        with open(expected_out_umi, 'r') as f:
+            output_expected_umi = f.readlines()
+        assert output_umi == output_expected_umi
+    finally:
+        os.remove(outfile)
+        os.remove(logfile)

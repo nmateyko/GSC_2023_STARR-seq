@@ -5,6 +5,8 @@
 
 import argparse
 from utils import read_fastq, revcomp
+import multiprocessing 
+from functools import partial
 
 
 def get_alignment_score(seq1, seq2):
@@ -39,39 +41,81 @@ def get_consensus(read1, read2):
             quality.append(qual2)
 
     return (read1[0], "".join(consensus), "".join(quality))
+           
+
+def get_align_result_string(reads, align_threshold, seq_only):
+    ''' Returns alignment result string for alignment of two reads.
+    Returns a tuple: first element is the string to write if alignment was
+    successful. Second element is the string to write to log file if
+    alignment was not successful
+    '''
+    r1 = reads[0]
+    r2 = reads[1]
+    r1_seq = r1[1]
+    r2_seq_revcomp = revcomp(r2[1])
+    r2_revcomp = (r2[0], r2_seq_revcomp, r2[2][::-1])
+
+    align_string = None
+    log_string = None
+
+    try:
+        align_score = get_alignment_score(r1_seq, r2_seq_revcomp)
+    except ValueError:
+        align_score = -1 # seq lengths were not equal; write to log file
+    if align_score > align_threshold:
+        consensus = get_consensus(r1, r2_revcomp)
+        if seq_only:
+            align_string = consensus[1] + "\n"
+        else:
+            read = "\n".join([consensus[0], consensus[1], "+", consensus[2]])
+            align_string = f"{read}\n"
+    else:
+        log_string = (f"Skipping {r1[0]}/{r2[0]} because they don't align within given "
+                        f"parameters\n              {r1[2]}\nr1:           {r1_seq}\nr2 (revcomp): {r2_seq_revcomp}\n              {r2[2]}\n")
+    
+    return (align_string, log_string)
+
 
 def pair_reads_and_save(r1_fastq_fp, r2_fastq_fp, out_fp, log_fp, align_threshold, seq_only=True):
     '''Combine paired end reads from read1 and read2 fastq files and save as a single fastq.
        Assumes read1 and read2 are the same length and are reverse complements with the potential
        for some mismatches. Saves read pairs that do not align to a log file'''
-    with open(r1_fastq_fp, 'rt') as r1, \
-         open(r2_fastq_fp, 'rt') as r2, \
+    with open(r1_fastq_fp, 'rt') as r1_file, \
+         open(r2_fastq_fp, 'rt') as r2_file, \
          open(out_fp, 'wt') as out_file, \
          open(log_fp, 'wt') as log_file:
 
-        r1_reader = read_fastq(r1)
-        r2_reader = read_fastq(r2)
-        
-        for r1_read, r2_read in zip(r1_reader, r2_reader):
-            r1_seq = r1_read[1]
-            r2_seq_revcomp = revcomp(r2_read[1])
+        r1_reader = read_fastq(r1_file)
+        r2_reader = read_fastq(r2_file)
 
-            r2_read_revcomp = (r2_read[0], r2_seq_revcomp, r2_read[2][::-1])
-
-            try:
-                align_score = get_alignment_score(r1_seq, r2_seq_revcomp)
-            except ValueError:
-                align_score = -1
-            if align_score > align_threshold:
-                consensus = get_consensus(r1_read, r2_read_revcomp)
-                if seq_only:
-                    out_file.write(consensus[1] + "\n")
-                else:
-                    read = "\n".join([consensus[0], consensus[1], "+", consensus[2]])
-                    out_file.write(f"{read}\n")
+        for reads in zip(r1_reader, r2_reader):
+            align_string, log_string = get_align_result_string(reads, align_threshold, seq_only)
+            if align_string:
+                out_file.write(align_string)
             else:
-                log_file.write(f"Skipping {r1_read[0]}/{r2_read[0]} because they don't align within given "
-                               f"parameters\n              {r1_read[2]}\nr1:           {r1_seq}\nr2 (revcomp): {r2_seq_revcomp}\n              {r2_read[2]}\n")
+                log_file.write(log_string)
+
+
+def pair_reads_and_save_mp(r1_fastq_fp, r2_fastq_fp, out_fp, log_fp, align_threshold, cpus, seq_only=True):
+    '''Combine paired end reads from read1 and read2 fastq files and save as a single fastq.
+       Uses multiprocessing for the alignment step.
+       Assumes read1 and read2 are the same length and are reverse complements with the potential
+       for some mismatches. Saves read pairs that do not align to a log file'''
+    with open(r1_fastq_fp, 'rt') as r1_file, \
+         open(r2_fastq_fp, 'rt') as r2_file, \
+         open(out_fp, 'wt') as out_file, \
+         open(log_fp, 'wt') as log_file:
+
+        r1_reader = read_fastq(r1_file)
+        r2_reader = read_fastq(r2_file)
+
+        p = multiprocessing.Pool(cpus)
+        
+        for align_string, log_string in p.imap(partial(get_align_result_string, align_threshold=align_threshold, seq_only=seq_only), zip(r1_reader, r2_reader), chunksize=1000):
+            if align_string:
+                out_file.write(align_string)
+            else:
+                log_file.write(log_string)
 
 
 def main():
@@ -80,12 +124,16 @@ def main():
     parser.add_argument('--r2', dest='r2_fastq_fp', help="Input fastq read 2 file", required=True)
     parser.add_argument('--out', dest='out_fp', help="Output file", required=True)
     parser.add_argument('--log', dest='log_fp', help="Log file", required=True)
+    parser.add_argument('-t', '--cpus', type=int, dest='num_cpus', default=1, help="Number of cpus for multiprocessing")
     parser.add_argument('--threshold', type=float, default=0.8, help="Fraction of aligned read1/2 that match must be greater than this value")
     parser.add_argument('--output-fastq', action='store_true', default=False, help="Output as a fastq file with header and quality (default output is sequence only)")
     args = parser.parse_args()
 
     save_seq_only = not args.output_fastq
-    pair_reads_and_save(args.r1_fastq_fp, args.r2_fastq_fp, args.out_fp, args.log_fp, align_threshold=args.threshold, seq_only=save_seq_only)
+    if args.num_cpus == 1:
+        pair_reads_and_save(args.r1_fastq_fp, args.r2_fastq_fp, args.out_fp, args.log_fp, align_threshold=args.threshold, seq_only=save_seq_only)
+    else:
+        pair_reads_and_save_mp(args.r1_fastq_fp, args.r2_fastq_fp, args.out_fp, args.log_fp, align_threshold=args.threshold, cpus=args.num_cpus, seq_only=save_seq_only)
 
 
 if __name__ == "__main__":
