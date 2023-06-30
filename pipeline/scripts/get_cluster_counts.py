@@ -133,7 +133,7 @@ def extract_umi(header, start_distance, umi_len):
     return umi
 
 
-def cluster_umis(umis, threshold, clust_method="directional"):
+def cluster_umis(umi_count_dict, threshold, clust_method="directional"):
     '''Cluster a list of UMIs using UMI-tools.
 
     Arguments:
@@ -150,9 +150,9 @@ def cluster_umis(umis, threshold, clust_method="directional"):
     if clust_method not in {'directional', 'cluster', 'adjacency'}:
         raise ValueError(f"clust_method must be 'directional', 'cluster', or 'adjacency'. You provided {clust_method}.")
     
-    umi_counter = dict(Counter([umi.encode() for umi in umis]))
+    umi_count_dict = {umi.encode(): count for umi, count in umi_count_dict.items()}
     clusterer = UMIClusterer(cluster_method=clust_method)
-    clusters = clusterer(umi_counter, threshold=threshold)
+    clusters = clusterer(umi_count_dict, threshold=threshold)
 
     return clusters
 
@@ -199,11 +199,14 @@ def get_count_string_umi(seq_umi_counts, max_dist, umi_threshold):
 
     consensus, count, not_matching = get_consensus_and_count_counter(seq_counts, max_dist)
 
-    umis_passed = []
+    umis_passed = {}
     for seq, umi_counts_dict in seq_umi_counts.items():
         if seq not in not_matching:
             for umi, umi_count in umi_counts_dict.items():
-                umis_passed += [umi] * umi_count
+                if umi in umis_passed:
+                    umis_passed[umi] += umi_count
+                else:
+                    umis_passed[umi] = umi_count
     if count > 0:
         umis_clustered = cluster_umis(umis_passed, umi_threshold)
         umi_count = len(umis_clustered)
