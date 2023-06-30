@@ -10,11 +10,11 @@
 
 import argparse
 import csv
-from datetime import datetime
+import multiprocessing 
 import os
-import subprocess
 import sys
 from collections import Counter
+from functools import partial
 from itertools import zip_longest
 from umi_tools import UMIClusterer
 from utils import read_fastq
@@ -103,6 +103,69 @@ def cluster_umis(umis, threshold, clust_method="directional"):
     clusters = clusterer(umi_counter, threshold=threshold)
 
     return clusters
+
+
+def add_seq_to_dict(seq, cluster_index, seq_dict):
+    if seq in seq_dict[cluster_index]:
+        seq_dict[cluster_index][seq] += 1
+    else:
+        seq_dict[cluster_index][seq] = 1
+
+
+def add_seq_and_umi_to_dict(seq, umi, cluster_index, seq_dict):
+    if seq in seq_dict[cluster_index]:
+        if umi in seq_dict[cluster_index][seq]:
+            seq_dict[cluster_index][seq][umi] += 1
+        else:
+            seq_dict[cluster_index][seq][umi] = 1
+    else:
+        seq_dict[cluster_index][seq] = {umi: 1}
+
+
+def get_count_string(seq_counts, max_dist):
+    seqs_expanded = []
+    count_string = None
+    log_string = None
+
+    for seq, count in seq_counts.items():
+        seqs_expanded += [seq] * count
+    consensus, count, not_matching = get_consensus_and_count(seqs_expanded, max_dist)
+    count_string = f"{consensus}\t{count}\n"
+
+    if len(not_matching) or count == 0:
+        log_string = [f"Consensus: {consensus}\n"]
+        for i in not_matching:
+            log_string.append(f"           {seqs_expanded[i]}\n")
+        log_string = "".join(log_string)
+
+    return (count_string, log_string)
+
+
+def get_count_string_umi(seq_counts, max_dist, umi_threshold):
+    seqs_expanded = []
+    umis_expanded = []
+    count_string = None
+    log_string = None
+
+    for seq, umis in seq_counts.items():
+        for umi in umis:
+            seqs_expanded += [seq] * umis[umi]
+            umis_expanded += [umi] * umis[umi]
+    consensus, count, not_matching = get_consensus_and_count(seqs_expanded, max_dist)
+
+    umis_passed = [umi for j, umi in enumerate(umis_expanded) if j not in not_matching]
+    if count > 0:
+        umis_clustered = cluster_umis(umis_passed, umi_threshold)
+        umi_count = len(umis_clustered)
+        count_string = f"{consensus}\t{count}\t{umi_count}\n"
+
+    if len(not_matching) or count == 0:
+        log_string = [f"Consensus: {consensus}\n"]
+        for i in not_matching:
+            log_string.append(f"           {seqs_expanded[i]}\n")
+        log_string = "".join(log_string)
+
+    return (count_string, log_string)
     
 
 def parse_args(args):
@@ -112,115 +175,56 @@ def parse_args(args):
     parser.add_argument('-o', '--output', dest='output_fp', help="Output file path", required=True)
     parser.add_argument('-l', '--log', dest='log_fp', help="Log file path", required=True)
     parser.add_argument('-d', '--max_dist', dest='max_dist', type=int, default=10, help="Maximum distance between sequence and cluster consensus")
+    parser.add_argument('-t', '--cpus', type=int, dest='num_cpus', default=1, help="Number of cpus for multiprocessing")
     parser.add_argument('--umi', dest='collapse_umi', action='store_true', default=False, help="Collapse sequences using UMIs")
     parser.add_argument('--umi-threshold', default=1, type=int, help="Max Levenshtein distance for collapsing UMIs")
     parser.add_argument('--umi-start', type=int, help="Distance of UMI start index from the end of the header line (len(header) - index of UMI start)", required='--umi' in sys.argv)
     parser.add_argument('--umi-len', type=int, help="Length of UMI", required='--umi' in sys.argv)
-    parser.add_argument('--in-memory', action='store_true', default=False, help="Store all full length sequences in memory")
     return parser.parse_args(args)
 
 
 def main(unparsed_args):
     args = parse_args(unparsed_args)
 
-    if args.in_memory:
-        with open(args.input_fastq_fp, 'r') as f:
-            fq_reader = read_fastq(f)
+    with open(args.clustered_fp, 'r') as f:
+        csv_reader = csv.reader(f, delimiter='\t')
+        index_cluster_mapping = {}
+        cluster_sizes = []
+        for i, row in enumerate(csv_reader):
+            indices = [int(i) for i in row[3].split(',')]
+            cluster_sizes.append(len(indices))
+            for j in indices:
+                index_cluster_mapping[j - 1] = i
+
+    with open(args.input_fastq_fp, 'r') as f:
+        fq_reader = read_fastq(f)
+        input_seqs = {i: {} for i in range(len(cluster_sizes))}
+        for i, (header, seq, qual) in enumerate(fq_reader):
+            cluster_index = index_cluster_mapping[i]
             if args.collapse_umi:
-                input_seqs = []
-                input_umis = []
-                for header, seq, qual in fq_reader:
-                    input_seqs.append(seq)
-                    input_umis.append(extract_umi(header, args.umi_start, args.umi_len))
+                umi = extract_umi(header, args.umi_start, args.umi_len)
+                add_seq_and_umi_to_dict(seq, umi, cluster_index, input_seqs)
             else:
-                input_seqs = [seq for header, seq, qual in fq_reader]
+                add_seq_to_dict(seq, cluster_index, input_seqs)
 
-        with (open(args.clustered_fp, 'r') as clustered_f,
-            open(args.output_fp, 'w') as output_f,
-            open(args.log_fp, 'w') as log_f):
-            
-            csv_reader = csv.reader(clustered_f, delimiter='\t')
+    with (open(args.output_fp, 'w') as output_f,
+          open(args.log_fp, 'w') as log_f):
+        
+        p = multiprocessing.Pool(args.num_cpus)
+        
+        if args.collapse_umi:
+            for count_string, log_string in p.imap(partial(get_count_string_umi, max_dist=args.max_dist, umi_threshold=args.umi_threshold), input_seqs.values(), chunksize=1000):
+                if count_string:
+                    output_f.write(count_string)
+                if log_string:
+                    log_f.write(log_string)
 
-            for row in csv_reader:
-                seq_indices = [int(i) for i in row[3].split(',')]
-                full_seqs = [input_seqs[i - 1] for i in seq_indices] # starcode indices are 1-based
-                consensus, count, not_matching = get_consensus_and_count(full_seqs, max_dist=args.max_dist)
-
-                if not args.collapse_umi:
-                    output_f.write(f"{consensus}\t{count}\n")               
-                else:
-                    umis = [input_umis[i - 1] for i in seq_indices] # starcode indices are 1-based
-                    umis_passed = [umi for i, umi in enumerate(umis) if i not in not_matching]
-                    if count > 0:
-                        umis_clustered = cluster_umis(umis_passed, args.umi_threshold)
-                        umi_count = len(umis_clustered)
-                        output_f.write(f"{consensus}\t{count}\t{umi_count}\n")
-
-                if len(not_matching) or count == 0:
-                    log_f.write(f"Consensus: {consensus}\n")
-                    for i in not_matching:
-                        log_f.write(f"           {full_seqs[i]}\n")
-
-    else:
-        with open(args.clustered_fp, 'r') as f:
-            csv_reader = csv.reader(f, delimiter='\t')
-            all_indices = []
-            total_seqs = 0
-            for row in csv_reader:
-                indices = [int(i) for i in row[3].split(',')]
-                total_seqs += len(indices)
-                all_indices.append(indices)
-            index_mapping = [None] * total_seqs
-            for i, j in enumerate((item for sublist in all_indices for item in sublist)):
-                index_mapping[j - 1] = i
-
-        file_id = datetime.now().strftime("%Y%m%d%H%M%S%f") # Prevent multiple instances from writing to the same file.
-            
-        with open(args.input_fastq_fp, 'r') as input_f, open(f'seqs_{file_id}.txt', 'w') as out_f:
-            fq_reader = read_fastq(input_f)
-            if args.collapse_umi:
-                for i, (header, seq, qual) in enumerate(fq_reader):
-                    umi = extract_umi(header, args.umi_start, args.umi_len)
-                    out_f.write(f"{index_mapping[i]}\t{seq}\t{umi}\n")
-            else:
-                for i, (header, seq, qual) in enumerate(fq_reader):
-                    out_f.write(f"{index_mapping[i]}\t{seq}\n")
-
-        with open(f'sorted_{file_id}.txt', 'w') as f:
-            subprocess.run(['sort', '-k', '1', '-n', f'seqs_{file_id}.txt'], stdout=f)
-
-        with (open(f'sorted_{file_id}.txt', 'r') as sorted_f,
-              open(args.output_fp, 'w') as output_f,
-              open(args.log_fp, 'w') as log_f):
-            
-            csv_reader = csv.reader(sorted_f, delimiter='\t')
-            for cluster_indices in all_indices:
-                full_seqs = []
-                if args.collapse_umi:
-                    umis = []
-                for i in cluster_indices:
-                    row = next(csv_reader)
-                    full_seqs.append(row[1])
-                    if args.collapse_umi:
-                        umis.append(row[2])
-                consensus, count, not_matching = get_consensus_and_count(full_seqs, max_dist=args.max_dist)
-
-                if not args.collapse_umi:
-                    output_f.write(f"{consensus}\t{count}\n")               
-                else:
-                    umis_passed = [umi for i, umi in enumerate(umis) if i not in not_matching]
-                    if count > 0:
-                        umis_clustered = cluster_umis(umis_passed, args.umi_threshold)
-                        umi_count = len(umis_clustered)
-                        output_f.write(f"{consensus}\t{count}\t{umi_count}\n")
-
-                if len(not_matching) or count == 0:
-                    log_f.write(f"Consensus: {consensus}\n")
-                    for i in not_matching:
-                        log_f.write(f"           {full_seqs[i]}\n")
-
-        os.remove(f'seqs_{file_id}.txt')
-        os.remove(f'sorted_{file_id}.txt')
+        else:
+            for count_string, log_string in p.imap(partial(get_count_string, max_dist=args.max_dist), input_seqs.values(), chunksize=1000):
+                if count_string:
+                    output_f.write(count_string)
+                if log_string:
+                    log_f.write(log_string)
 
 
 if __name__ == "__main__":

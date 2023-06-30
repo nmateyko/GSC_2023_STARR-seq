@@ -233,42 +233,21 @@ def test_get_cluster_counts_main_umi():
         os.remove(outfile)
         os.remove(logfile)
 
-
-def test_get_cluster_counts_main_no_umi_in_memory():
+def test_get_cluster_counts_main_umi_log():
     try:
         fq = "test_files/get_cluster_counts_test.fastq"
         clustered = "test_files/get_cluster_counts_test.txt"
         file_id = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")
         outfile = f"test_files/test_cluster_out_{file_id}.txt"
         logfile = f"test_files/test_cluster_{file_id}.log"
-        expected_out_no_umi = f"test_files/test_cluster_expected_out_no_umi.txt"
-        test_args = ['-f', fq, '-c', clustered, '-o', outfile, '-l', logfile, '-d', '3', '--in-memory']
+        expected_log = f"test_files/test_cluster_expected_log.txt"
+        test_args = ['-f', fq, '-c', clustered, '-o', outfile, '-l', logfile, '-d', '3', '--umi', '--umi-threshold', '1', '--umi-start', '17', '--umi-len', '8']
         get_cluster_counts_main(test_args)
-        with open(outfile, 'r') as f:
-            output_no_umi = f.readlines()
-        with open(expected_out_no_umi, 'r') as f:
-            output_expected_no_umi = f.readlines()
-        assert output_no_umi == output_expected_no_umi
-    finally:
-        os.remove(outfile)
-        os.remove(logfile)
-
-
-def test_get_cluster_counts_main_umi_in_memory():
-    try:
-        fq = "test_files/get_cluster_counts_test.fastq"
-        clustered = "test_files/get_cluster_counts_test.txt"
-        file_id = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")
-        outfile = f"test_files/test_cluster_out_{file_id}.txt"
-        logfile = f"test_files/test_cluster_{file_id}.log"
-        expected_out_umi = f"test_files/test_cluster_expected_out_umi.txt"
-        test_args = ['-f', fq, '-c', clustered, '-o', outfile, '-l', logfile, '-d', '3', '--umi', '--umi-threshold', '1', '--umi-start', '17', '--umi-len', '8', '--in-memory']
-        get_cluster_counts_main(test_args)
-        with open(outfile, 'r') as f:
-            output_umi = f.readlines()
-        with open(expected_out_umi, 'r') as f:
-            output_expected_umi = f.readlines()
-        assert output_umi == output_expected_umi
+        with open(logfile, 'r') as f:
+            test_log = f.readlines()
+        with open(expected_log, 'r') as f:
+            expected_log = f.readlines()
+        assert test_log == expected_log
     finally:
         os.remove(outfile)
         os.remove(logfile)
