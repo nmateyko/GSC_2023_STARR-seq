@@ -51,6 +51,31 @@ def get_consensus(seqs):
     return "".join(consensus)[:seq_len]
 
 
+def get_consensus_counter(seqs_count_dict):
+
+    seq_len_dict = {}
+    for seq, count in seqs_count_dict.items():
+        seq_len = len(seq)
+        if seq_len in seq_len_dict:
+            seq_len_dict[seq_len] += count
+        else:
+            seq_len_dict[seq_len] = count
+
+    seq_len = most_common(seq_len_dict)
+
+    consensus = []
+
+    seq_counts = [i for i in seqs_count_dict.values()]
+
+    for bases in zip_longest(*seqs_count_dict, fillvalue ='N'):
+        base_count_dict = {'A': 0, 'C': 0, 'G': 0, 'T': 0, 'N': 0}
+        for base, count in zip(bases, seq_counts):
+            base_count_dict[base] += count
+        consensus.append(most_common(base_count_dict))
+
+    return "".join(consensus)[:seq_len]
+
+
 def get_consensus_and_count(seqs, max_dist):
     '''Get full length consensus sequence and count from list of sequences.
        Any sequences further than Levenshtein distance of max_dist from the consensus
@@ -74,6 +99,31 @@ def get_consensus_and_count(seqs, max_dist):
         else:
             count += 1
     return (consensus, count, set(not_matching))
+
+
+def get_consensus_and_count_counter(seqs_count_dict, max_dist):
+    '''Get full length consensus sequence and count from list of sequences.
+       Any sequences further than Levenshtein distance of max_dist from the consensus
+       are not counted and are returned as a list.
+
+       Arguments:
+           seqs (list of str): list of sequences to count
+           max_dist (int): Maximum distance between sequence and the cluster consensus that is allowed;
+                           sequences with larger distances will be discarded.
+
+        Returns:
+            Tuple with 3 elements: the consensus sequence, the count, and a set of sequence indices that
+            did not match the consensus within the specified max_dist.
+    '''
+    consensus = get_consensus_counter(seqs_count_dict)
+    not_matching = []
+    total_count = 0
+    for seq, count in seqs_count_dict.items():
+        if Levenshtein.distance(consensus, seq) > max_dist:
+            not_matching.append(seq)
+        else:
+            total_count += count
+    return (consensus, total_count, set(not_matching))
 
 
 def extract_umi(header, start_distance, umi_len):
@@ -125,37 +175,35 @@ def add_seq_and_umi_to_dict(seq, umi, cluster_index, seq_dict):
 
 
 def get_count_string(seq_counts, max_dist):
-    seqs_expanded = []
     count_string = None
     log_string = None
 
-    for seq, count in seq_counts.items():
-        seqs_expanded += [seq] * count
-    consensus, count, not_matching = get_consensus_and_count(seqs_expanded, max_dist)
+    consensus, count, not_matching = get_consensus_and_count_counter(seq_counts, max_dist)
     count_string = f"{consensus}\t{count}\n"
 
     if len(not_matching) or count == 0:
         log_string = [f"Consensus: {consensus}\n"]
-        for i in not_matching:
-            log_string.append(f"           {seqs_expanded[i]}\n")
+        for seq in not_matching:
+            log_string.append(f"           {seq}\t{seq_counts[seq]}\n")
         log_string = "".join(log_string)
 
     return (count_string, log_string)
 
 
-def get_count_string_umi(seq_counts, max_dist, umi_threshold):
-    seqs_expanded = []
-    umis_expanded = []
+def get_count_string_umi(seq_umi_counts, max_dist, umi_threshold):
     count_string = None
     log_string = None
+    seq_counts = {}
+    for seq, umi_counts in seq_umi_counts.items():
+        seq_counts[seq] = sum(i for i in umi_counts.values())
 
-    for seq, umis in seq_counts.items():
-        for umi in umis:
-            seqs_expanded += [seq] * umis[umi]
-            umis_expanded += [umi] * umis[umi]
-    consensus, count, not_matching = get_consensus_and_count(seqs_expanded, max_dist)
+    consensus, count, not_matching = get_consensus_and_count_counter(seq_counts, max_dist)
 
-    umis_passed = [umi for j, umi in enumerate(umis_expanded) if j not in not_matching]
+    umis_passed = []
+    for seq, umi_counts_dict in seq_umi_counts.items():
+        if seq not in not_matching:
+            for umi, umi_count in umi_counts_dict.items():
+                umis_passed += [umi] * umi_count
     if count > 0:
         umis_clustered = cluster_umis(umis_passed, umi_threshold)
         umi_count = len(umis_clustered)
@@ -163,8 +211,8 @@ def get_count_string_umi(seq_counts, max_dist, umi_threshold):
 
     if len(not_matching) or count == 0:
         log_string = [f"Consensus: {consensus}\n"]
-        for i in not_matching:
-            log_string.append(f"           {seqs_expanded[i]}\n")
+        for seq in not_matching:
+            log_string.append(f"           {seq}\t{seq_counts[seq]}\n")
         log_string = "".join(log_string)
 
     return (count_string, log_string)
