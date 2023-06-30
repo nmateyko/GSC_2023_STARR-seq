@@ -20,6 +20,8 @@ from umi_tools import UMIClusterer
 from utils import read_fastq
 import Levenshtein
 
+csv.field_size_limit(sys.maxsize)
+
 def most_common(l):
     '''Returns most common element in a list. In the case of a tie, returns the
        most common element that occurs first in the list.
