@@ -71,8 +71,8 @@ rule cutadapt_trim_PE:
     input:
         get_input_fastqs
     output: 
-        r1="output/trimmed/{sample}_1.fastq",
-        r2="output/trimmed/{sample}_2.fastq"
+        r1=temp("output/trimmed/{sample}_1.fastq"),
+        r2=temp("output/trimmed/{sample}_2.fastq")
     log:
         summary="output/logs/cutadapt/{sample}_cutadapt.log",
         untrimmed_1="output/logs/cutadapt/{sample}_untrimmed_1.fastq.gz",
@@ -106,7 +106,7 @@ rule pair:
         r2="output/trimmed/{sample}_2.fastq",
         script="scripts/pair_reads.py"
     output: 
-        output="output/paired/{sample}_assembled.fastq"
+        output=temp("output/paired/{sample}_assembled.fastq")
     log:
         "output/logs/pair/{sample}_unpaired.log"
     conda:
@@ -123,7 +123,7 @@ rule cluster:
     input:
         "output/paired/{sample}_assembled.fastq"
     output:
-        "output/clustered/{sample}_clustered.txt"
+        temp("output/clustered/{sample}_clustered.txt")
     log:
         "output/logs/starcode/{sample}_starcode.log"
     conda:
