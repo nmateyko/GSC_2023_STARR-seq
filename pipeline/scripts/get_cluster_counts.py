@@ -12,6 +12,7 @@ import argparse
 import csv
 import multiprocessing 
 import os
+import random
 import sys
 from collections import Counter
 from functools import partial
@@ -266,7 +267,11 @@ def main(unparsed_args):
         p = multiprocessing.Pool(args.num_cpus)
         
         if args.collapse_umi:
-            for count_string, log_string in p.imap(partial(get_count_string_umi, max_dist=args.max_dist, umi_threshold=args.umi_threshold), input_seqs.values(), chunksize=1000):
+            # shuffle input_seqs dict so that the largest clusters aren't all sent to the same core
+            cluster_indices = list(input_seqs.keys())
+            random.shuffle(cluster_indices)
+            input_seqs_shuffled = [input_seqs[i] for i in cluster_indices]
+            for count_string, log_string in p.imap(partial(get_count_string_umi, max_dist=args.max_dist, umi_threshold=args.umi_threshold), input_seqs_shuffled, chunksize=1000):
                 if count_string:
                     output_f.write(count_string)
                 if log_string:
