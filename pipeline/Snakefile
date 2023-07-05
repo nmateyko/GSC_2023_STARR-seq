@@ -14,10 +14,34 @@ def get_input_fastqs(wildcards):
         return [f"{data_dir}/HG25JDSX5_1_1_{sample_suffix}", f"{data_dir}/HG25JDSX5_1_2_{sample_suffix}"]
 
 def get_umi_params(wildcards):
-    if "Sahu_RNA" in wildcards.sample:
+    if "RNA" in wildcards.sample:
         return "--umi --umi-threshold 1 --umi-start 17 --umi-len 8"
     else:
         return ""
+
+def get_cluster_threads(wildcards):
+    if "RNA" in wildcards.sample:
+        return 8
+    else:
+        return 4
+
+def get_cluster_mem(wildcards):
+    if "RNA" in wildcards.sample:
+        return 38400
+    else:
+        return 19200
+
+def get_count_threads(wildcards):
+    if "RNA" in wildcards.sample:
+        return 8
+    else:
+        return 2
+
+def get_count_mem(wildcards):
+    if "RNA" in wildcards.sample:
+        return 38400
+    else:
+        return 9600
 
 
 rule all:
@@ -47,8 +71,8 @@ rule cutadapt_trim_PE:
     input:
         get_input_fastqs
     output: 
-        r1="output/trimmed/{sample}_1.fastq",
-        r2="output/trimmed/{sample}_2.fastq"
+        r1=temp("output/trimmed/{sample}_1.fastq"),
+        r2=temp("output/trimmed/{sample}_2.fastq")
     log:
         summary="output/logs/cutadapt/{sample}_cutadapt.log",
         untrimmed_1="output/logs/cutadapt/{sample}_untrimmed_1.fastq.gz",
@@ -82,24 +106,24 @@ rule pair:
         r2="output/trimmed/{sample}_2.fastq",
         script="scripts/pair_reads.py"
     output: 
-        output="output/paired/{sample}_assembled.fastq"
+        output=temp("output/paired/{sample}_assembled.fastq")
     log:
         "output/logs/pair/{sample}_unpaired.log"
     conda:
         "environment.yaml"
-    threads: 1
+    threads: 4
     resources:
-        mem_mb=4800,
+        mem_mb=19200,
         walltime="01:00:00"
     shell:
-        "python {input.script} --r1 {input.r1} --r2 {input.r2} --out {output} --log {log} --output-fastq"
+        "python {input.script} --r1 {input.r1} --r2 {input.r2} --out {output} --log {log} -t {threads} --output-fastq"
         
 
 rule cluster:
     input:
         "output/paired/{sample}_assembled.fastq"
     output:
-        "output/clustered/{sample}_clustered.txt"
+        temp("output/clustered/{sample}_clustered.txt")
     log:
         "output/logs/starcode/{sample}_starcode.log"
     conda:
@@ -107,9 +131,9 @@ rule cluster:
     params:
         length=30,
         distance=3
-    threads: 4
+    threads: get_cluster_threads
     resources:
-        mem_mb=19200,
+        mem_mb=get_cluster_mem,
         walltime="01:00:00"
     shell:
         "cut -c-{params.length} {input} | starcode -o {output} -t {threads} -d {params.distance} --seq-id -c 2> {log}"
@@ -129,9 +153,9 @@ rule count:
     params:
         distance=20,
         umi_params=get_umi_params
-    threads: 2
+    threads: get_count_threads
     resources:
-        mem_mb=9600,
+        mem_mb=get_count_mem,
         walltime="01:00:00"
     shell:
-        "python {input.script} -f {input.fq} -c {input.clustered} -o {output} -l {log} -d {params.distance} {params.umi_params}"
+        "python {input.script} -f {input.fq} -c {input.clustered} -o {output} -l {log} -d {params.distance} -t {threads} {params.umi_params}"

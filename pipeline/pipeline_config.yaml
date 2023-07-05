@@ -1,4 +1,10 @@
 samples:
     test: test
     Sahu_DNA_rep1: ACTATTGC-TCCGCCTA_150bp.concat_chastity_passed.fastq.gz
-    Sahu_RNA_rep2: -CGTGGAGT_150bp.concat_chastity_passed.fastq.gz
+    Sahu_DNA_rep2: TCTTGCAT-ACGCACAA_150bp.concat_chastity_passed.fastq.gz
+    Sahu_RNA_rep1: -CGTGGAGT_150bp.concat_chastity_passed.fastq.gz
+    Sahu_RNA_rep2: -TAGCGTAA_150bp.concat_chastity_passed.fastq.gz
+    STARR_DNA_rep1: CTTGGAAC-CAATGGTA_150bp.concat_chastity_passed.fastq.gz
+    STARR_DNA_rep2: ATAGTCTG-TGCGAATT_150bp.concat_chastity_passed.fastq.gz
+    STARR_RNA_rep1: -TAGTCGTG_150bp.concat_chastity_passed.fastq.gz
+    STARR_RNA_rep2: -CAGACCTT_150bp.concat_chastity_passed.fastq.gz
