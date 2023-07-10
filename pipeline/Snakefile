@@ -59,10 +59,10 @@ rule fastqc:
         "output/logs/fastqc/{sample}.log",
     conda:
         "environment.yaml"
-    threads: 1
+    threads: 2
     resources:
-        mem_mb=4800,
-        walltime="00:20:00"
+        mem_mb=9600,
+        walltime="01:00:00"
     shell:
         "mkdir {output} ; fastqc {input} -t {threads} -o {output} --noextract 2> {log}"
 
