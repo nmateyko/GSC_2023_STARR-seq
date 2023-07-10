@@ -101,22 +101,24 @@ rule cutadapt_trim_PE:
 
 
 rule pair:
-    input:
-        r1="output/trimmed/{sample}_1.fastq",
-        r2="output/trimmed/{sample}_2.fastq",
-        script="scripts/pair_reads.py"
-    output: 
-        output=temp("output/paired/{sample}_assembled.fastq")
-    log:
-        "output/logs/pair/{sample}_unpaired.log"
-    conda:
-        "environment.yaml"
-    threads: 4
-    resources:
-        mem_mb=19200,
-        walltime="01:00:00"
-    shell:
-        "python {input.script} --r1 {input.r1} --r2 {input.r2} --out {output} --log {log} -t {threads} --output-fastq"
+  input:
+    r1="output/trimmed/{sample}_1.fastq",
+    r2="output/trimmed/{sample}_2.fastq",
+  output: 
+    output=temp("output/paired/{sample}_assembled.fastq")
+  log:
+    "output/logs/pair/{sample}_unpaired"
+  conda:
+    "environment.yaml"
+  params:
+    min_overlap=60,
+    mismatch_fraction=0.2
+  threads: 4
+  resources:
+    mem_mb=19200,
+    walltime="01:00:00"
+  shell:
+    "NGmerge -1 {input.r1} -2 {input.r2} -o {output} -y -m {params.min_overlap} -p {params.mismatch_fraction} -f {log} -n {threads}"
         
 
 rule cluster:

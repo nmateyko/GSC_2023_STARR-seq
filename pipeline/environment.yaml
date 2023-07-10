@@ -7,3 +7,4 @@ dependencies:
   - starcode=1.4
   - umi_tools=1.1.4
   - levenshtein=0.21.1
+  - NGMerge=0.3
