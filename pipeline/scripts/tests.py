@@ -154,19 +154,19 @@ def test_most_common(l, expected):
     assert most_common(l) == expected
 
 @pytest.mark.parametrize("seqs, expected", [
-    (["AAAAAAAA"],  "AAAAAAAA"),
-    (["AAAAAAAA", "AAAAAAAA", "TTTTTTTT"],  "AAAAAAAA"),
-    (["AAAAAAAA", "TAAAAAAT", "TTTTTTTT"],  "TAAAAAAT"),
-    (["AAAAAAAA", "AAAAAAAA", "TTTTTTTTT", "TTTTTTTTT"],  "AAAAAAAA"),
-    (["ACGTACGTACGT", "ACGTACGTACGT", "ACCTACGTACGTAA", "ACGTACTTACGA", "TACGTACGT"],  "ACGTACGTACGT"),
+    ({"AAAAAAAA": 1},  "AAAAAAAA"),
+    ({"AAAAAAAA": 2, "TTTTTTTT": 1},  "AAAAAAAA"),
+    ({"AAAAAAAA": 1, "TAAAAAAT": 1, "TTTTTTTT": 1},  "TAAAAAAT"),
+    ({"AAAAAAAA": 2, "TTTTTTTTT": 2},  "AAAAAAAA"),
+    ({"ACGTACGTACGT": 2, "ACCTACGTACGTAA": 1, "ACGTACTTACGA": 1, "TACGTACGT": 1},  "ACGTACGTACGT"),
 ])
 def test_get_consensus_cluster(seqs, expected):
     assert get_consensus_cluster(seqs) == expected
 
 @pytest.mark.parametrize("seqs, max_dist, expected", [
-    (["AAAAAAAA", "AAAAATAA", "AGAAAAAA", "AAAAAAAN", "AAAAAAA"],  3, ("AAAAAAAA", 5, set())),
-    (["AAAAAAAA", "AAAAAAAA", "TTTTTTTT"], 3, ("AAAAAAAA", 2, {2})),
-    (["AAAAAAAA", "TAAAAAAT", "TTTTTTTT"], 2,  ("TAAAAAAT", 2, {2})),
+    ({"AAAAAAAA": 1, "AAAAATAA": 1, "AGAAAAAA": 1, "AAAAAAAN": 1, "AAAAAAA": 1},  3, ("AAAAAAAA", 5, set())),
+    ({"AAAAAAAA": 2, "TTTTTTTT": 1}, 3, ("AAAAAAAA", 2, {"TTTTTTTT"})),
+    ({"AAAAAAAA": 1, "TAAAAAAT": 1, "TTTTTTTT": 1}, 2,  ("TAAAAAAT", 2, {"TTTTTTTT"})),
 ])
 def test_get_consensus_and_count(seqs, max_dist, expected):
     assert get_consensus_and_count(seqs, max_dist) == expected
@@ -184,15 +184,15 @@ def test_extract_umi_ValueError():
         extract_umi(header, 16, 8)
 
 @pytest.mark.parametrize("umis, t, expected", [
-    (["AAAAAAAA", "AAAAAAAN", "AAAAAAAA"],  2, [["AAAAAAAA".encode(), "AAAAAAAN".encode()]]),
-    (["AAAAAAAA", "AAAAAAAA", "TAAAAAAA", "AAAAAATT", "TTTTTTTT"], 1, [["AAAAAAAA".encode(), "TAAAAAAA".encode()], ["AAAAAATT".encode()],  ["TTTTTTTT".encode()]])
+    ({"AAAAAAAA": 2, "AAAAAAAN": 1},  2, [["AAAAAAAA".encode(), "AAAAAAAN".encode()]]),
+    ({"AAAAAAAA": 2, "TAAAAAAA": 1, "AAAAAATT": 1, "TTTTTTTT": 1}, 1, [["AAAAAAAA".encode(), "TAAAAAAA".encode()], ["AAAAAATT".encode()],  ["TTTTTTTT".encode()]])
 ])
 def test_cluster_umis(umis, t, expected):
     assert cluster_umis(umis, t, clust_method="directional") == expected
 
 def test_cluster_umis_ValueError():
     with pytest.raises(ValueError, match=re.escape("clust_method must be 'directional', 'cluster', or 'adjacency'. You provided test.")):
-        cluster_umis(['AAAAAAAA'], 1, clust_method="test")
+        cluster_umis({'AAAAAAAA': 1}, 1, clust_method="test")
 
 def test_get_cluster_counts_main_no_umi():
     try:
@@ -228,7 +228,8 @@ def test_get_cluster_counts_main_umi():
             output_umi = f.readlines()
         with open(expected_out_umi, 'r') as f:
             output_expected_umi = f.readlines()
-        assert output_umi == output_expected_umi
+        # in umi mode the output order is random, so compare sets
+        assert set(output_umi) == set(output_expected_umi)
     finally:
         os.remove(outfile)
         os.remove(logfile)
@@ -247,6 +248,7 @@ def test_get_cluster_counts_main_umi_log():
             test_log = f.readlines()
         with open(expected_log, 'r') as f:
             expected_log = f.readlines()
+        # in umi mode the output order is random, so compare sets
         assert test_log == expected_log
     finally:
         os.remove(outfile)
