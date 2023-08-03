@@ -161,6 +161,11 @@ def add_seq_and_umi_to_dict(seq, umi, cluster_index, seq_dict):
 
 
 def get_count_string(seq_counts, max_dist):
+    ''' Takes a dict of sequence keys and count values and calculates a consensus
+    sequence and total count. Sequences further than max_dist Levenshtein distance
+    from the consensus are discarded. Returns a count_string (sequence and count)
+    and a log_string (discarded sequences and their counts) as a tuple.
+    '''
     count_string = None
     log_string = None
 
@@ -177,6 +182,12 @@ def get_count_string(seq_counts, max_dist):
 
 
 def get_count_string_umi(seq_umi_counts, max_dist, umi_threshold):
+    ''' Takes a dict of sequence keys and umi count dict values and calculates a consensus
+    sequence and total count before and after umi collapsing. Sequences further than max_dist
+    Levenshtein distance from the consensus are discarded, and umis are clustered
+    using UMI-tools with umi_threshold. Returns a count_string (sequence, count, and collapsed count)
+    and a log_string (discarded sequences and their counts) as a tuple.
+    '''
     count_string = None
     log_string = None
     seq_counts = {}
@@ -225,26 +236,31 @@ def parse_args(args):
 def main(unparsed_args):
     args = parse_args(unparsed_args)
 
+    # Read in the starcode output and map each read index to
+    # its cluster ID (line number in the starcode output file).
     with open(args.clustered_fp, 'r') as f:
         csv_reader = csv.reader(f, delimiter='\t')
         index_cluster_mapping = {}
-        cluster_sizes = []
+        n_clusters = 0
         for i, row in enumerate(csv_reader):
             indices = [int(i) for i in row[3].split(',')]
-            cluster_sizes.append(len(indices))
+            n_clusters += 1
             for j in indices:
                 index_cluster_mapping[j - 1] = i
 
+    # Read in the original (unclustered) fastq and add each
+    # sequence to its corresponding cluster dictionary, or increment
+    # the sequence count in the dictionary if it's already present.
     with open(args.input_fastq_fp, 'r') as f:
         fq_reader = read_fastq(f)
-        input_seqs = {i: {} for i in range(len(cluster_sizes))}
+        seq_clust_counts = {i: {} for i in range(n_clusters)}
         for i, (header, seq, qual) in enumerate(fq_reader):
             cluster_index = index_cluster_mapping[i]
             if args.collapse_umi:
                 umi = extract_umi(header, args.umi_start, args.umi_len)
-                add_seq_and_umi_to_dict(seq, umi, cluster_index, input_seqs)
+                add_seq_and_umi_to_dict(seq, umi, cluster_index, seq_clust_counts)
             else:
-                add_seq_to_dict(seq, cluster_index, input_seqs)
+                add_seq_to_dict(seq, cluster_index, seq_clust_counts)
 
     with (open(args.output_fp, 'w') as output_f,
           open(args.log_fp, 'w') as log_f):
@@ -252,18 +268,22 @@ def main(unparsed_args):
         p = multiprocessing.Pool(args.num_cpus)
         
         if args.collapse_umi:
-            # shuffle input_seqs dict so that the largest clusters aren't all sent to the same core
-            cluster_indices = list(input_seqs.keys())
+            # shuffle seq_clust_counts dict so that the largest clusters aren't all sent to the same core
+            cluster_indices = list(seq_clust_counts.keys())
             random.shuffle(cluster_indices)
-            input_seqs_shuffled = [input_seqs[i] for i in cluster_indices]
-            for count_string, log_string in p.imap(partial(get_count_string_umi, max_dist=args.max_dist, umi_threshold=args.umi_threshold), input_seqs_shuffled, chunksize=1000):
+            seq_clust_counts_shuffled = [seq_clust_counts[i] for i in cluster_indices]
+
+            # For each cluster in seq_clust_counts, get the consensus, count,
+            # and collapsed count from the sequence count dictionary for that cluster.
+            for count_string, log_string in p.imap(partial(get_count_string_umi, max_dist=args.max_dist, umi_threshold=args.umi_threshold), seq_clust_counts_shuffled, chunksize=1000):
                 if count_string:
                     output_f.write(count_string)
                 if log_string:
                     log_f.write(log_string)
 
         else:
-            for count_string, log_string in p.imap(partial(get_count_string, max_dist=args.max_dist), input_seqs.values(), chunksize=1000):
+            # For each cluster in seq_clust_counts, get the consensus and count from the sequence count dictionary for that cluster.
+            for count_string, log_string in p.imap(partial(get_count_string, max_dist=args.max_dist), seq_clust_counts.values(), chunksize=1000):
                 if count_string:
                     output_f.write(count_string)
                 if log_string:
