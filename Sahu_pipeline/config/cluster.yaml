@@ -1,0 +1,11 @@
+__default__:
+    jobname: "{rule}_{wildcards.sample}"
+    walltime: "01:00:00"
+    nodes: "1"
+    cpus: "1"
+    mem_mb: "4800"
+    account: "st-cdeboer-1"
+    email: "nicholas.mateyko@ubc.ca"
+    mailon: "abe"
+    outdir: "job_logs/{rule}_{wildcards.sample}_output.txt"
+    errordir: "job_logs/{rule}_{wildcards.sample}_error.txt"
